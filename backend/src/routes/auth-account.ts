@@ -45,6 +45,7 @@ authAccountRouter.post("/refresh", async (req: Request, res: Response, next: Nex
 
     const currentVersion = await getSessionVersion(rotated.walletAddress);
     if (currentVersion !== null && currentVersion !== rotated.sessionVersion) {
+      revokeRefreshTokens(rotated.walletAddress);
       return res.status(401).json({
         error: "session_revoked",
         code: "SESSION_REVOKED",

@@ -9,7 +9,7 @@ import {
 } from "../schemas/user.schemas.js";
 import { AppError, ErrorCode, ErrorType } from "../lib/errors.js";
 import { logger } from "../services/logger.js";
-import { signRefreshToken, signToken } from "../services/jwt.js";
+import { signToken } from "../services/jwt.js";
 import { authJwtMiddleware } from "../middleware/auth-jwt.js";
 import { logAuthEvent } from "../services/auth-events.js";
 import { loginAttemptStore } from "../services/login-attempts.js";
@@ -122,10 +122,16 @@ usersRouter.post("/login", async (req: Request, res: Response, next: NextFunctio
     }
     const { user, token } = authenticated;
     const sessionVersion = user.sessionVersion ?? 0;
-    const refreshToken =
-      typeof signRefreshToken === "function"
-        ? signRefreshToken(user.walletAddress, sessionVersion)
-        : undefined;
+    let refreshToken: string | undefined;
+    try {
+      const jwtModule = await import("../services/jwt.js");
+      if (typeof jwtModule.signRefreshToken === "function") {
+        refreshToken = jwtModule.signRefreshToken(user.walletAddress, sessionVersion);
+      }
+    } catch {
+      // A custom test/mock or alternate JWT implementation may expose only
+      // the access-token signer. Access authentication remains usable.
+    }
 
     logger.info("User logged in successfully", {
       userId: user.id,

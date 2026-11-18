@@ -15,6 +15,18 @@ export function resolveCorsOrigins(env: NodeJS.ProcessEnv = process.env): string
         .filter(Boolean)
     : [DEFAULT_DEV_ORIGIN];
 
+  for (const origin of origins) {
+    if (origin === "*") continue;
+    try {
+      const parsed = new URL(origin);
+      if (parsed.origin !== origin) {
+        throw new Error("invalid");
+      }
+    } catch {
+      throw new Error(`Invalid CORS origin: ${origin}. Use an exact origin such as https://app.stardial.com.`);
+    }
+  }
+
   if (env.NODE_ENV === "production" && origins.includes("*")) {
     throw new Error(
       "CORS wildcard (*) is not allowed in production. Set CORS_ORIGIN to specific origin(s)."
