@@ -79,4 +79,6 @@ Stardial may audit access and repository activity related to the engagement.
 ## Questions
 
 Open an issue or contact the maintainers if any term here is unclear or conflicts
-with a statement of work.
+with a statement of work. The required staged dispute process, governing law,
+arbitration rules, and court venue are set out in
+[`contractor-terms-commercial-and-legal.md`](./contractor-terms-commercial-and-legal.md#3-dispute-resolution).
