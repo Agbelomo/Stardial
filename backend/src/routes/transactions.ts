@@ -21,6 +21,42 @@ import { authJwtMiddleware } from "../middleware/auth-jwt.js";
 import { logger } from "../services/logger.js";
 import { getEnv } from "../config/env.js";
 
+/**
+ * Backpressure-safe write for HTTP streaming responses.
+ *
+ * `res.write()` returns `false` when the internal write buffer is full,
+ * which means the runtime has accepted the data but the kernel socket
+ * buffer is saturated — the client is consuming bytes slower than we are
+ * producing them. Continuing to call `res.write()` without waiting causes
+ * Node.js to queue chunks in memory, defeating the purpose of streaming
+ * and potentially exhausting heap for large exports.
+ *
+ * When `res.write()` returns `false`, this helper suspends the generator
+ * loop until the `drain` event fires (the socket buffer has drained to its
+ * low-water mark), then resumes.  If the response is closed before drain
+ * fires (client disconnect), the promise resolves immediately so the
+ * calling loop can exit cleanly.
+ *
+ * References: Node.js stream docs — "Event: 'drain'"; issue #33.
+ */
+export async function drainWrite(res: Response, chunk: string): Promise<void> {
+  const flushed = res.write(chunk);
+  if (!flushed) {
+    await new Promise<void>((resolve) => {
+      const onDrain = () => {
+        res.removeListener("close", onClose);
+        resolve();
+      };
+      const onClose = () => {
+        res.removeListener("drain", onDrain);
+        resolve();
+      };
+      res.once("drain", onDrain);
+      res.once("close", onClose);
+    });
+  }
+}
+
 export const transactionsRouter = Router();
 
 // Initialize payout history service
@@ -186,29 +222,52 @@ transactionsRouter.get("/export", authJwtMiddleware, async (req: Request, res: R
     }
 
     // format === "csv": stream the full authorized result set.
+    //
+    // Transfer-Encoding: chunked tells the client that the response length is
+    // unknown up front. Without it, some HTTP/1.1 intermediaries may buffer the
+    // whole body before forwarding, re-introducing the memory problem. Express
+    // sets this automatically for HTTP/1.1 responses that do not carry a
+    // Content-Length, but we set it explicitly here so the intent is clear and
+    // so test assertions can verify it. (HTTP/2 uses per-stream flow control
+    // instead; this header is stripped by Node.js for h2 connections.)
     const filename = `stardial-transactions-${Date.now()}.csv`;
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.setHeader("Transfer-Encoding", "chunked");
     res.setHeader("Cache-Control", "no-store");
 
-    res.write(toCsvRow(["id", "roundId", "recipient", "amount", "token", "timestamp", "txHash", "status"]));
+    // Track whether the client closed the connection before we finished so
+    // the loop can exit early instead of writing into a closed socket.
+    let clientGone = false;
+    res.once("close", () => { clientGone = true; });
+
+    await drainWrite(res, toCsvRow(["id", "roundId", "recipient", "amount", "token", "timestamp", "txHash", "status"]));
 
     let rowsWritten = 0;
     let truncated = false;
     for await (const batch of payoutHistoryService.iteratePayouts({ recipient, startDate, endDate, status })) {
       for (const record of batch) {
+        if (clientGone) break;
         if (rowsWritten >= EXPORT_MAX_ROWS) {
           truncated = true;
           break;
         }
-        res.write(toCsvRow(formatTransactionRow(record)));
+        // drainWrite suspends here when the write buffer is full (backpressure),
+        // resuming only after the socket has drained.  This keeps memory flat
+        // regardless of client download speed. See drainWrite() above.
+        await drainWrite(res, toCsvRow(formatTransactionRow(record)));
         rowsWritten++;
       }
-      if (truncated) break;
+      if (truncated || clientGone) break;
     }
 
     if (truncated) {
       logger.warn("Transaction export truncated at row cap", { recipient, cap: EXPORT_MAX_ROWS });
+    }
+
+    if (clientGone) {
+      logger.info("Transaction export aborted: client disconnected", { recipient, rowsWritten });
+      return;
     }
 
     return res.end();
