@@ -33,18 +33,50 @@ It supplements the statement of work.
 - If a local law conflicts with these terms, notify Stardial and the parties will
   agree a workaround in writing before proceeding.
 
-## 3. Dispute Escalation and Mediation
+## 3. Dispute Resolution
 
-1. **Negotiation.** The party raising a dispute gives written notice describing
-   the issue. The parties' nominated contacts discuss it in good faith within
-   **10 business days**.
-2. **Senior escalation.** If that fails, each party's senior representative meets
-   within a further **10 business days**.
-3. **Mediation.** If still unresolved, the parties try mediation with a mutually
-   agreed mediator, splitting the cost, for up to **30 days**.
-4. **Legal action.** Only after these steps may either party start proceedings.
-   Work continues and invoices stay payable during a dispute unless the contract
-   was terminated for cause.
+No party may start arbitration or litigation until it completes the stages below.
+The parties continue performing undisputed obligations while a dispute is
+pending, and work continues and undisputed invoices remain payable unless the
+engagement was terminated for cause. Emergency relief to preserve evidence,
+protect confidential information, prevent unauthorised access, or stop
+misappropriation is permitted at any stage.
+
+1. **Written notice and negotiation.** The party raising a dispute gives written
+   notice to the nominated contract contacts, describing the facts, the clause
+   involved, and the requested resolution. The nominated contacts meet or confer
+   in good faith within **10 business days** of the notice.
+2. **Senior escalation.** If the nominated contacts do not resolve the dispute,
+   each party appoints a senior representative who has authority to settle the
+   matter. The representatives meet within **10 further business days**.
+3. **Mediation.** If senior escalation does not resolve the dispute, the parties
+   jointly appoint a mediator and meet for one mediation session within
+   **30 calendar days**. Unless the parties agree otherwise, mediation is private
+   and confidential, and the parties split the mediator's fees equally. Statements
+   made and documents created solely for mediation cannot be used in later
+   proceedings except to the extent admissible under applicable law.
+4. **Arbitration.** If mediation fails or a mediator is not appointed within
+   **30 calendar days**, the dispute is finally resolved by binding arbitration
+   under the Nigerian Arbitration and Mediation Act 2023 (or its replacement).
+   The seat is Lagos, Nigeria. The tribunal consists of one arbitrator agreed by
+   the parties within 10 business days after a written request for arbitration;
+   absent agreement, the appointing authority is the Lagos Court of Arbitration
+   (LCA). The arbitrator decides in accordance with these terms and Nigerian law.
+   The award is final and binding, and judgment may be entered on it in a court
+   of competent jurisdiction.
+5. **Litigation.** Litigation is limited to proceedings for interim or emergency
+   relief and recognition or enforcement of an arbitral award. Any such
+   proceedings are brought exclusively in the courts of Lagos State, Nigeria.
+
+## 3A. Governing Law and Venue
+
+- These terms and each statement of work are governed by the laws of the Federal
+  Republic of Nigeria, without regard to conflict-of-laws rules.
+- The seat and legal place of arbitration is Lagos, Nigeria.
+- Any court proceedings permitted under section 3 are submitted exclusively to
+  the courts sitting in Lagos State, Nigeria.
+- Each party waives any objection to jurisdiction or venue in Lagos State only
+  to the extent it is permitted to do so under applicable mandatory law.
 
 ## 4. Exit and Transition
 
