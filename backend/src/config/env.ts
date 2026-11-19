@@ -19,6 +19,8 @@ const backendEnvSchema = z.object({
     }, "PORT must be a valid port number between 1 and 65535"),
 
   CORS_ORIGIN: z.string().optional(),
+  JWT_REFRESH_SECRET: z.string().optional(),
+  JWT_REFRESH_EXPIRES_IN: z.string().optional(),
   LOG_LEVEL: z.string().optional().default("info"),
   LOG_FORMAT: z.enum(["json", "pretty"]).optional().default("pretty"),
 

@@ -77,10 +77,17 @@ app.use(
     noSniff: true,
   })
 );
-// Credentials are intentionally disabled: auth uses a bearer token in the
-// Authorization header (see middleware/auth-jwt.ts), never cookies, so the
-// browser never needs to send credentials cross-origin.
-app.use(cors({ origin: corsOrigin, credentials: false }));
+// Auth uses bearer tokens, not cookies. Still allow the bearer header and
+// request-correlation header explicitly, and expose request IDs to browsers.
+app.use(
+  cors({
+    origin: corsOrigin,
+    credentials: false,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Authorization", "Content-Type", "X-Request-ID", "Idempotency-Key"],
+    exposedHeaders: ["X-Request-ID", "Retry-After"],
+  })
+);
 // Before express.json() so 413 rejections are still counted (Issue #1090).
 app.use(payloadSizeMetricsMiddleware);
 app.use(splitLifecycleMetricsMiddleware);

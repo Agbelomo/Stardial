@@ -141,13 +141,18 @@ function resolveAppErrorStatus(err: AppError): number {
   }
 
   if (err.code === ErrorCode.NOT_FOUND) return 404;
+  if (err.code === ErrorCode.UNAUTHORIZED) return 401;
   if (err.type === ErrorType.VALIDATION) return 400;
+  if (err.type === ErrorType.FORBIDDEN) return 403;
   // Auth *failures* (missing/invalid credentials) are 401, not 400. The
   // original mapping returned 400 here, which tells the client "your
   // request is malformed" instead of "you're not authenticated" — the
   // wrong signal for e.g. a frontend deciding whether to redirect to login.
   if (err.type === ErrorType.AUTH) return 401;
   if (err.type === ErrorType.CONFLICT) return 409;
+  if (err.type === ErrorType.ACCOUNT_STATE) {
+    return err.code === ErrorCode.ACCOUNT_NOT_FOUND ? 404 : 409;
+  }
   return 500;
 }
 

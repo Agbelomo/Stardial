@@ -61,13 +61,16 @@ function buildPageMetadata(page: PayoutPage, limit: number, offset: number) {
 }
 
 function formatTransactionRow(record: PayoutRecord): (string | number)[] {
+  const timestamp = Number.isFinite(record.timestamp)
+    ? new Date(record.timestamp * 1000).toISOString()
+    : "";
   return [
     record.id,
     record.roundId,
     record.recipient,
     record.amount,
     record.token,
-    new Date(record.timestamp * 1000).toISOString(),
+    timestamp,
     record.txHash,
     record.status,
   ];
@@ -232,7 +235,9 @@ transactionsRouter.get("/receipt/:txHash", async (req: Request, res: Response, n
       reference: transaction.txHash,
       amount: transaction.amount,
       token: transaction.token,
-      date: new Date(transaction.timestamp * 1000).toISOString(),
+      date: Number.isFinite(transaction.timestamp)
+        ? new Date(transaction.timestamp * 1000).toISOString()
+        : null,
       network: getEnv().SOROBAN_NETWORK_PASSPHRASE,
       status: transaction.status,
       recipient: transaction.recipient,

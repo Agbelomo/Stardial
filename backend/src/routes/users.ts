@@ -16,6 +16,28 @@ import { loginAttemptStore } from "../services/login-attempts.js";
 
 export const usersRouter = Router();
 
+function isoOrNull(value: unknown): string | null {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString();
+  if (typeof value === "string") {
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) return date.toISOString();
+  }
+  return null;
+}
+
+function serializeUser(user: User) {
+  return {
+    id: user.id ?? null,
+    walletAddress: user.walletAddress ?? null,
+    email: user.email ?? null,
+    alias: user.alias ?? null,
+    role: user.role ?? null,
+    isActive: user.isActive ?? false,
+    createdAt: isoOrNull(user.createdAt),
+    updatedAt: isoOrNull(user.updatedAt),
+  };
+}
+
 /**
  * @openapi
  * POST /users/register
@@ -63,16 +85,7 @@ usersRouter.post("/register", async (req: Request, res: Response, next: NextFunc
       walletAddress: savedUser.walletAddress,
     });
 
-    return res.status(201).json({
-      id: savedUser.id,
-      walletAddress: savedUser.walletAddress,
-      email: savedUser.email,
-      alias: savedUser.alias,
-      role: savedUser.role,
-      isActive: savedUser.isActive,
-      createdAt: savedUser.createdAt.toISOString(),
-      updatedAt: savedUser.updatedAt.toISOString(),
-    });
+    return res.status(201).json(serializeUser(savedUser));
   } catch (error) {
     return next(error);
   }
@@ -107,7 +120,18 @@ usersRouter.post("/login", async (req: Request, res: Response, next: NextFunctio
         "Unable to sign in. Check your details or try again later."
       );
     }
-    const { user } = authenticated;
+    const { user, token } = authenticated;
+    const sessionVersion = user.sessionVersion ?? 0;
+    let refreshToken: string | undefined;
+    try {
+      const jwtModule = await import("../services/jwt.js");
+      if (typeof jwtModule.signRefreshToken === "function") {
+        refreshToken = jwtModule.signRefreshToken(user.walletAddress, sessionVersion);
+      }
+    } catch {
+      // A custom test/mock or alternate JWT implementation may expose only
+      // the access-token signer. Access authentication remains usable.
+    }
 
     logger.info("User logged in successfully", {
       userId: user.id,
@@ -116,15 +140,9 @@ usersRouter.post("/login", async (req: Request, res: Response, next: NextFunctio
     logAuthEvent(res, "login", "success", { userId: user.id });
 
     return res.status(200).json({
-      id: user.id,
-      walletAddress: user.walletAddress,
-      email: user.email,
-      alias: user.alias,
-      role: user.role,
-      isActive: user.isActive,
-      createdAt: user.createdAt.toISOString(),
-      updatedAt: user.updatedAt.toISOString(),
-      token: signToken(user.walletAddress, user.sessionVersion ?? 0)
+      ...serializeUser(user),
+      token: signToken(user.walletAddress, sessionVersion),
+      ...(refreshToken ? { refreshToken } : {}),
     });
   } catch (error) {
     return next(error);
@@ -146,16 +164,7 @@ usersRouter.get("/me", authJwtMiddleware, async (req: Request, res: Response, ne
     if (!user) {
       throw new AppError(ErrorType.RPC, ErrorCode.NOT_FOUND, "User not found.");
     }
-    return res.status(200).json({
-      id: user.id,
-      walletAddress: user.walletAddress,
-      email: user.email,
-      alias: user.alias,
-      role: user.role,
-      isActive: user.isActive,
-      createdAt: user.createdAt.toISOString(),
-      updatedAt: user.updatedAt.toISOString()
-    });
+    return res.status(200).json(serializeUser(user));
   } catch (error) {
     return next(error);
   }
@@ -205,16 +214,7 @@ usersRouter.patch("/me", authJwtMiddleware, async (req: Request, res: Response, 
       return await userRepository.save(user);
     });
 
-    return res.status(200).json({
-      id: savedUser.id,
-      walletAddress: savedUser.walletAddress,
-      email: savedUser.email,
-      alias: savedUser.alias,
-      role: savedUser.role,
-      isActive: savedUser.isActive,
-      createdAt: savedUser.createdAt.toISOString(),
-      updatedAt: savedUser.updatedAt.toISOString()
-    });
+    return res.status(200).json(serializeUser(savedUser));
   } catch (error) {
     return next(error);
   }
@@ -285,16 +285,7 @@ usersRouter.get("/:walletAddress", async (req: Request, res: Response, next: Nex
       );
     }
 
-    return res.status(200).json({
-      id: user.id,
-      walletAddress: user.walletAddress,
-      email: user.email,
-      alias: user.alias,
-      role: user.role,
-      isActive: user.isActive,
-      createdAt: user.createdAt.toISOString(),
-      updatedAt: user.updatedAt.toISOString()
-    });
+    return res.status(200).json(serializeUser(user));
   } catch (error) {
     return next(error);
   }
