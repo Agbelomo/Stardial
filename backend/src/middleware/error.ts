@@ -5,7 +5,86 @@ import { AppError, ErrorCode, ErrorType } from "../lib/errors.js";
 import { logger } from "../services/logger.js";
 import { RpcError, RpcTimeoutError } from "../services/stellar.js";
 
-const isProduction = process.env.NODE_ENV === "production";
+function isProduction(): boolean {
+  return process.env.NODE_ENV === "production";
+}
+
+/**
+ * Issue #4: error `details` are developer metadata, not API surface.
+ *
+ * `AppError.details` is populated at throw sites with whatever aids
+ * debugging — upstream exception objects, raw node/Soroban messages, and in
+ * the past literal `stack` strings. Spreading it into the response body
+ * leaked file names, absolute paths and dependency internals to API
+ * consumers. Everything below is stripped (or redacted) before serialisation:
+ *
+ *  - keys that conventionally hold stack frames or nested exceptions
+ *  - `Error` instances, functions, symbols and other non-serialisable values
+ *  - strings that look like V8 stack frames or `file.ts:line:col` locations
+ */
+const REDACTED = "[REDACTED]";
+const MAX_DETAIL_DEPTH = 4;
+
+const UNSAFE_DETAIL_KEYS = new Set([
+  "stack",
+  "stacktrace",
+  "trace",
+  "originalerror",
+  "originalexception",
+  "cause",
+  "err",
+  "rawerror",
+]);
+
+const STACK_FRAME_PATTERN =
+  /(?:\n\s+at\s)|(?:\bnode:internal\/)|(?:\b[A-Za-z]:\\[^:\n]+:\d+:\d+)|(?:\/[^\s:]+\.(?:ts|tsx|js|mjs|cjs):\d+:\d+)/;
+
+function sanitizeDetailValue(value: unknown, depth: number): unknown {
+  if (value === null || value === undefined) return undefined;
+
+  const type = typeof value;
+  if (type === "string") {
+    return STACK_FRAME_PATTERN.test(value as string) ? REDACTED : value;
+  }
+  if (type === "number" || type === "boolean") return value;
+  // JSON.stringify throws on BigInt; surface it as a string instead.
+  if (type === "bigint") return (value as bigint).toString();
+  if (type !== "object") return undefined; // functions, symbols
+
+  if (value instanceof Date) return value.toISOString();
+  if (value instanceof Error) return undefined;
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => sanitizeDetailValue(entry, depth + 1))
+      .filter((entry) => entry !== undefined);
+  }
+  if (depth >= MAX_DETAIL_DEPTH) return REDACTED;
+
+  return sanitizeDetailRecord(value as Record<string, unknown>, depth + 1);
+}
+
+function sanitizeDetailRecord(record: Record<string, unknown>, depth: number) {
+  const safe: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(record)) {
+    if (UNSAFE_DETAIL_KEYS.has(key.toLowerCase())) continue;
+    const sanitized = sanitizeDetailValue(value, depth);
+    if (sanitized !== undefined) safe[key] = sanitized;
+  }
+  return safe;
+}
+
+/**
+ * Returns the client-safe subset of an error's `details` object. Exported so
+ * the contract can be unit-tested directly.
+ */
+export function sanitizeErrorDetails(details: unknown): Record<string, unknown> {
+  if (typeof details !== "object" || details === null || details instanceof Error) {
+    return {};
+  }
+  if (Array.isArray(details)) return {};
+
+  return sanitizeDetailRecord(details as Record<string, unknown>, 0);
+}
 
 function formatZodError(err: ZodError) {
   const flattened = err.flatten();
@@ -62,13 +141,18 @@ function resolveAppErrorStatus(err: AppError): number {
   }
 
   if (err.code === ErrorCode.NOT_FOUND) return 404;
+  if (err.code === ErrorCode.UNAUTHORIZED) return 401;
   if (err.type === ErrorType.VALIDATION) return 400;
+  if (err.type === ErrorType.FORBIDDEN) return 403;
   // Auth *failures* (missing/invalid credentials) are 401, not 400. The
   // original mapping returned 400 here, which tells the client "your
   // request is malformed" instead of "you're not authenticated" — the
   // wrong signal for e.g. a frontend deciding whether to redirect to login.
   if (err.type === ErrorType.AUTH) return 401;
   if (err.type === ErrorType.CONFLICT) return 409;
+  if (err.type === ErrorType.ACCOUNT_STATE) {
+    return err.code === ErrorCode.ACCOUNT_NOT_FOUND ? 404 : 409;
+  }
   return 500;
 }
 
@@ -108,6 +192,11 @@ export function errorHandler(
 
   if (err instanceof AppError) {
     const status = resolveAppErrorStatus(err);
+    // Sanitised once and reused for both the log line and the response, so a
+    // detail value that is not JSON-safe (Error instance, BigInt, circular
+    // reference) can never throw inside the handler and fall through to
+    // Express's default HTML error page.
+    const safeDetails = sanitizeErrorDetails(err.details);
 
     // Client-caused errors (bad input, bad/missing auth, not found) are
     // expected traffic, not bugs in our code — log them at `warn` so they
@@ -120,19 +209,23 @@ export function errorHandler(
       type: err.type,
       code: err.code,
       message: err.message,
-      details: err.details,
+      details: safeDetails,
     });
 
     return res.status(status).json({
       error: err.code.toLowerCase(),
       code: err.code,
-      message: err.message,
+      // A 5xx AppError carries an internal message (an upstream client error,
+      // a DB driver message, ...). Like the unhandled branch below, never
+      // expose it in production; the real message is in the log line above.
+      message: status >= 500 && isProduction() ? "Unexpected server error." : err.message,
       requestId,
       // Previously `err.details || { remediation: err.remediation }` —
       // if details existed but had no remediation baked in, remediation
-      // was silently dropped. Merge both instead of picking one.
+      // was silently dropped. Merge both instead of picking one, and only
+      // ever expose the sanitised subset (Issue #4).
       details: {
-        ...(err.details && typeof err.details === "object" ? err.details : {}),
+        ...safeDetails,
         ...(err.remediation ? { remediation: err.remediation } : {}),
       },
     });
@@ -240,7 +333,7 @@ export function errorHandler(
     // errors, third-party error text) to the client in production — the
     // real message is already captured in the log line above. In dev, show
     // it for faster debugging.
-    message: isProduction ? "Unexpected server error." : normalizedErr.message,
+    message: isProduction() ? "Unexpected server error." : normalizedErr.message,
     requestId,
     details: {},
   });

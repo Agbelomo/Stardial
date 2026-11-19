@@ -1,5 +1,8 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, type MockInstance } from "vitest";
 import request from "supertest";
+import type { Response } from "express";
+import { EventEmitter } from "events";
+import { drainWrite } from "../routes/transactions.js";
 
 const OWN_ADDRESS = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF";
 const OTHER_ADDRESS = "GBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBWHF";
@@ -102,6 +105,29 @@ describe("GET /transactions/export", () => {
     expect(lines[1]).toContain(OWN_ADDRESS);
   });
 
+  it("sets Transfer-Encoding: chunked on the CSV response so intermediaries do not buffer the stream", async () => {
+    const token = signToken(OWN_ADDRESS);
+    const response = await request(app)
+      .get("/transactions/export")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(response.status).toBe(200);
+    // Express sets Transfer-Encoding: chunked for streaming responses that
+    // have no Content-Length.  We also set it explicitly to signal intent
+    // and prevent buffering proxies from reassembling the body.
+    expect(response.headers["transfer-encoding"]).toBe("chunked");
+  });
+
+  it("sets Cache-Control: no-store on CSV exports to prevent proxy caching of sensitive data", async () => {
+    const token = signToken(OWN_ADDRESS);
+    const response = await request(app)
+      .get("/transactions/export")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(response.status).toBe(200);
+    expect(response.headers["cache-control"]).toBe("no-store");
+  });
+
   it("rejects an invalid format value", async () => {
     const token = signToken(OWN_ADDRESS);
     const response = await request(app)
@@ -109,5 +135,95 @@ describe("GET /transactions/export", () => {
       .set("Authorization", `Bearer ${token}`);
 
     expect(response.status).toBe(400);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// drainWrite() unit tests (issue #33: backpressure handling)
+// ---------------------------------------------------------------------------
+//
+// These tests verify the helper's behaviour in isolation without spinning up
+// the full HTTP server or mock database.  They drive a fake Response-shaped
+// EventEmitter so we can control the write-buffer state precisely.
+
+function makeFakeRes(writeReturnValue: boolean): {
+  res: Response;
+  emitter: EventEmitter;
+  writtenChunks: string[];
+} {
+  const emitter = new EventEmitter();
+  const writtenChunks: string[] = [];
+
+  const res = Object.assign(emitter, {
+    write: vi.fn((chunk: string) => {
+      writtenChunks.push(chunk);
+      return writeReturnValue;
+    }),
+  }) as unknown as Response;
+
+  return { res, emitter, writtenChunks };
+}
+
+describe("drainWrite()", () => {
+  it("writes the chunk and resolves immediately when the buffer has space (write returns true)", async () => {
+    const { res, writtenChunks } = makeFakeRes(true);
+
+    await drainWrite(res, "hello\r\n");
+
+    expect(writtenChunks).toEqual(["hello\r\n"]);
+  });
+
+  it("suspends until the drain event fires when the write buffer is full (write returns false)", async () => {
+    const { res, emitter, writtenChunks } = makeFakeRes(false);
+
+    let resolved = false;
+    const p = drainWrite(res, "row\r\n").then(() => { resolved = true; });
+
+    // The promise must not have resolved yet — buffer is still full.
+    expect(resolved).toBe(false);
+
+    // Simulate the socket draining.
+    emitter.emit("drain");
+    await p;
+
+    expect(resolved).toBe(true);
+    expect(writtenChunks).toEqual(["row\r\n"]);
+  });
+
+  it("resolves without deadlocking when the client disconnects before drain fires", async () => {
+    const { res, emitter } = makeFakeRes(false);
+
+    const p = drainWrite(res, "chunk\r\n");
+
+    // Simulate a client disconnect instead of a drain.
+    emitter.emit("close");
+    await p; // must resolve, not hang
+
+    // No assertion on the written chunk because whether write() was called
+    // before or after close is an implementation detail; what matters is
+    // that the promise settles.
+  });
+
+  it("does not add lingering event listeners after the write resolves normally", async () => {
+    const { res, emitter } = makeFakeRes(false);
+
+    const p = drainWrite(res, "data\r\n");
+    emitter.emit("drain");
+    await p;
+
+    // After settlement, neither the drain nor close listener should remain.
+    expect(emitter.listenerCount("drain")).toBe(0);
+    expect(emitter.listenerCount("close")).toBe(0);
+  });
+
+  it("does not add lingering event listeners after resolving on close", async () => {
+    const { res, emitter } = makeFakeRes(false);
+
+    const p = drainWrite(res, "data\r\n");
+    emitter.emit("close");
+    await p;
+
+    expect(emitter.listenerCount("drain")).toBe(0);
+    expect(emitter.listenerCount("close")).toBe(0);
   });
 });

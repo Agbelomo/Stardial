@@ -225,6 +225,10 @@ function serialize(notification: {
   readAt: Date | null;
   createdAt: Date;
 }) {
+  const createdAt =
+    notification.createdAt instanceof Date && !Number.isNaN(notification.createdAt.getTime())
+      ? notification.createdAt.toISOString()
+      : null;
   return {
     id: notification.id,
     category: notification.category,
@@ -237,6 +241,6 @@ function serialize(notification: {
     metadata: notification.metadata,
     read: notification.readAt !== null,
     readAt: notification.readAt?.toISOString() ?? null,
-    createdAt: notification.createdAt.toISOString(),
+    createdAt,
   };
 }

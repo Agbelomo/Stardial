@@ -111,7 +111,7 @@ describe("API Response-Time Benchmarks", () => {
   describe("aggregation and analytical endpoints", () => {
     it("GET /admin/allowlist-status returns within 800ms", async () => {
       startTimer("allowlist-status");
-      const res = await request(app)
+      await request(app)
         .get("/admin/allowlist-status")
         .set("X-Admin-Token", "test");
       const latency = endTimer("allowlist-status");
@@ -122,7 +122,7 @@ describe("API Response-Time Benchmarks", () => {
 
     it("GET /admin/cache-stats returns within 300ms", async () => {
       startTimer("cache-stats");
-      const res = await request(app)
+      await request(app)
         .get("/admin/cache-stats")
         .set("X-Admin-Token", "test");
       const latency = endTimer("cache-stats");
@@ -171,7 +171,7 @@ describe("API Response-Time Benchmarks", () => {
   describe("pagination performance", () => {
     it("handles limit parameter within 100ms overhead", async () => {
       startTimer("pagination-small");
-      const res = await request(app)
+      await request(app)
         .get("/projects")
         .query({ limit: 10, offset: 0 });
       const latency = endTimer("pagination-small");
@@ -182,7 +182,7 @@ describe("API Response-Time Benchmarks", () => {
 
     it("handles large offset within reasonable time", async () => {
       startTimer("pagination-large-offset");
-      const res = await request(app)
+      await request(app)
         .get("/projects")
         .query({ limit: 10, offset: 5000 });
       const latency = endTimer("pagination-large-offset");

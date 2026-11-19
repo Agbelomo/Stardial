@@ -15,8 +15,57 @@ import { revokeSessionForWallet } from "../services/session-revocation.js";
 import { hashEmailForLog, logAuthEvent } from "../services/auth-events.js";
 import { recordAuthAudit } from "../services/auth-audit.js";
 import { logger } from "../services/logger.js";
+import { rotateRefreshToken, revokeRefreshTokens } from "../services/jwt.js";
+import { getSessionVersion } from "../services/session-revocation.js";
 
 export const authAccountRouter = Router();
+
+const refreshTokenSchema = z.object({
+  refreshToken: z.string().min(1),
+});
+
+/**
+ * Exchanges a valid refresh token for a new access/refresh pair.
+ * Refresh tokens are rotated on every use and are also invalidated by logout
+ * or password-reset session revocation.
+ */
+authAccountRouter.post("/refresh", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { refreshToken } = refreshTokenSchema.parse(req.body);
+    const rotated = rotateRefreshToken(refreshToken);
+    if (!rotated) {
+      return res.status(401).json({
+        error: "invalid_refresh_token",
+        code: "INVALID_REFRESH_TOKEN",
+        message: "Refresh token is invalid, expired, or already used.",
+        requestId: res.locals.requestId,
+        details: {},
+      });
+    }
+
+    const currentVersion = await getSessionVersion(rotated.walletAddress);
+    if (currentVersion !== null && currentVersion !== rotated.sessionVersion) {
+      revokeRefreshTokens(rotated.walletAddress);
+      return res.status(401).json({
+        error: "session_revoked",
+        code: "SESSION_REVOKED",
+        message: "Session has been revoked. Please log in again.",
+        requestId: res.locals.requestId,
+        details: {},
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      token: rotated.accessToken,
+      accessToken: rotated.accessToken,
+      refreshToken: rotated.refreshToken,
+      requestId: res.locals.requestId,
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
 
 const emailChangeRequestSchema = z.object({
   newEmail: z.string().trim().email("Invalid email format").max(128),
@@ -53,6 +102,7 @@ authAccountRouter.post(
     try {
       const { walletAddress, sessionVersion } = req.user!;
       const revoked = await revokeSessionForWallet(walletAddress, sessionVersion ?? 0);
+      revokeRefreshTokens(walletAddress);
 
       logAuthEvent(res, "logout", "success", { sessionsRevoked: revoked > 0 });
       return res.status(200).json({
