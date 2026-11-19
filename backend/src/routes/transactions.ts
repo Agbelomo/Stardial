@@ -83,7 +83,7 @@ function formatTransactionRow(record: PayoutRecord): (string | number)[] {
  * description: Returns paginated payout records with optional wallet, date, and status filters.
  * tags: [Transactions]
  */
-transactionsRouter.get("/history", async (req: Request, res: Response, next: NextFunction) => {
+transactionsRouter.get("/history", authJwtMiddleware, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const parsed = transactionHistoryQuerySchema.safeParse(req.query);
     if (!parsed.success) {
@@ -99,8 +99,18 @@ transactionsRouter.get("/history", async (req: Request, res: Response, next: Nex
     const { walletAddress, startDate, endDate, status, limit, offset, cursor } = parsed.data;
     const decodedCursor = decodePageCursor(cursor);
 
+    // Always scope to the authenticated wallet (same rule as /transactions/export).
+    const recipient = req.user!.walletAddress;
+    if (walletAddress && walletAddress !== recipient) {
+      throw new AppError(
+        ErrorType.AUTH,
+        ErrorCode.UNAUTHORIZED,
+        "Cannot read another wallet's transaction history."
+      );
+    }
+
     logger.info("Fetching transaction history", {
-      walletAddress,
+      walletAddress: recipient,
       startDate,
       endDate,
       status,
@@ -110,7 +120,7 @@ transactionsRouter.get("/history", async (req: Request, res: Response, next: Nex
     });
 
     const page = await payoutHistoryService.getPayoutsPage({
-      recipient: walletAddress,
+      recipient,
       startDate,
       endDate,
       status,

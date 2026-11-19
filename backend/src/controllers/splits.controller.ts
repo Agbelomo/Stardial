@@ -79,8 +79,6 @@ export class SplitsController {
         ? decodeContractValue("simulateTransaction:get_project_count", contractU32Schema, total)
         : 0;
 
-      const nextStart = start + projects.length;
-
       const nextCursor = start + projects.length < totalCount ? encodeCursor(start + limit) : null;
 
       return res.status(200).json(

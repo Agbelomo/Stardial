@@ -224,18 +224,6 @@ function getErrorMessage(err: unknown): string {
   return String(err);
 }
 
-function getErrorStack(err: unknown): string | undefined {
-  if (err instanceof Error) {
-    return err.stack;
-  }
-
-  if (isRecord(err) && typeof err.stack === "string") {
-    return err.stack;
-  }
-
-  return undefined;
-}
-
 function getSimulationResultError(err: unknown): string | undefined {
   if (!isRecord(err)) {
     return undefined;
@@ -365,7 +353,10 @@ export function translateSorobanError(err: unknown): AppError {
         ErrorCode.SIMULATION_FAILED,
         "Soroban simulation failed",
         { message: "The network could not simulate this transaction.", action: "Retry Request" },
-        { rawError, originalError: err }
+        // Issue #4: never attach the originating exception to client details
+        // — the raw message is enough for server-side diagnostics and is
+        // stripped from the response by the error middleware.
+        { rawError }
       );
     }
   }
@@ -386,17 +377,20 @@ export function translateSorobanError(err: unknown): AppError {
       ErrorType.ACCOUNT_STATE,
       ErrorCode.CONTRACT_NOT_FOUND,
       "Resource not found",
-      { message: "The requested resource could not be found on the network.", action: "Check Identifier" },
-      { originalError: err }
+      { message: "The requested resource could not be found on the network.", action: "Check Identifier" }
     );
   }
 
   // 5. Default Internal Error
+  //
+  // Issue #4: no stack/originalError in `details`. The error middleware used
+  // to spread details into the response body, which leaked stack frames and
+  // server file paths to API consumers; the originating exception is already
+  // captured by the logger and Sentry at the handler boundary.
   return createAppError(
     ErrorType.INTERNAL,
     ErrorCode.INTERNAL_ERROR,
     errorMessage || "An unexpected error occurred",
-    { message: "Our team has been notified. Please try again later." },
-    { stack: getErrorStack(err), originalError: err }
+    { message: "Our team has been notified. Please try again later." }
   );
 }

@@ -1,4 +1,5 @@
-import { Router } from "express";
+import { Router, type NextFunction } from "express";
+import { logger } from "../services/logger.js";
 import { getEnvDiagnostics } from "../config/env.js";
 import { getDataSource } from "../services/database.js";
 import { getCacheStats } from "../services/stellar.js";
@@ -44,7 +45,7 @@ export interface MainnetReadinessResponse {
 }
 
 opsRouter.post(
-  "/backfill",      withResponseValidation(OpsBackfillResponseSchema, async (req, res) => {
+  "/backfill",      withResponseValidation(OpsBackfillResponseSchema, async (req, res, next: NextFunction) => {
     const parsed = OpsBackfillRequestSchema.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({
@@ -66,10 +67,10 @@ opsRouter.post(
         ...result,
       });
     } catch (error) {
-      res.status(500).json({
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      });
+      // Issue #4: hand the raw exception to the central handler. Echoing
+      // `error.message` here leaked Postgres/TypeORM internals (table names,
+      // SQL fragments, file paths) straight to the caller.
+      return next(error);
     }
   })
 );
@@ -136,12 +137,16 @@ opsRouter.get(
       details: { rowCount: Array.isArray(queryResult) ? queryResult.length : undefined }
     };
   } catch (error) {
+    // Issue #4: the driver error stays in the logs. This endpoint is public
+    // readiness surface, so the response only carries the stable reason code.
+    logger.error("Mainnet readiness database probe failed", {
+      requestId,
+      error: error instanceof Error ? error.message : String(error)
+    });
     dbComponent = {
       ok: false,
       message: "database_unavailable",
-      details: {
-        error: error instanceof Error ? error.message : String(error)
-      }
+      details: {}
     };
   }
 
