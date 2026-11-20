@@ -106,9 +106,9 @@ A service is unavailable when either monitoring location shows a covered critica
 operation failing, returning an incorrect result, or exceeding its agreed timeout
 (**10 seconds** by default). Count downtime from the first failed check through
 the first subsequent successful checks of all critical operations at both
-locations. Corroborated incident
-logs or customer reports also count; a healthy process alone is not proof that an
-operation works. Overlapping failures count once per service.
+locations. Corroborated incident logs or customer reports also count; a healthy
+process alone is not proof that an operation works. Overlapping failures count
+once per service.
 
 Availability is `100 × (eligible minutes − unavailable minutes) / eligible minutes`.
 Eligible minutes are the minutes in the active service term within the UTC
@@ -141,9 +141,20 @@ eligible minutes is "not applicable" for availability.
 
 ### Support and escalation
 
+The table below covers general service support. For payout incidents, the
+[Payout Failure Severity Matrix](../runbooks/payout-failure-severity-matrix.md)
+governs classification (including P0), escalation, and any shorter response or
+resolution deadline. The statement of work must record the applicable runbook
+version at handover; later contractual changes require a written change order.
+Where both sets of commitments apply, meet the earlier deadline. Misses against
+these applicable deadlines count toward the incident credits below. Payout P0
+incidents also require the root-cause analysis specified below for P1 incidents.
+
 Business hours are **09:00–17:00 UTC, Monday–Friday**, excluding holidays listed in
 the statement of work before the service term starts. A business day is eight
-such hours. P1 clocks run continuously; P2 and P3 clocks count business hours only.
+such hours. For general support, P1 clocks run continuously; P2 and P3 clocks
+count business hours only. Payout P0–P2 response and resolution clocks run
+continuously; payout P3 clocks count business hours.
 Clocks start at the earlier of monitoring detection or receipt through the
 recorded support channel. An automated acknowledgement is not a human response.
 
@@ -192,6 +203,9 @@ cure period, and termination for an uncured breach follow
 [Breach Notification and Cure](./contractor-terms-breach-and-exit.md#2-breach-notification-and-cure).
 Cure requires implementing the corrective actions and supplying evidence that
 the affected operations meet their targets; it does not erase accrued credits.
+For ongoing services, the cure-period pause in that document applies to affected
+deliverable deadlines only: availability measurement, monitoring, support,
+incident updates, and service-credit accrual continue throughout the cure period.
 Service credits do not replace those breach rights or the existing liability
 limits. Disputes about measurements or credits follow the dispute process linked
 below; undisputed credits and service obligations remain due.
