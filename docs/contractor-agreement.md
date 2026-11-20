@@ -1,9 +1,9 @@
 # Stardial Contractor Agreement Terms
 
 This document defines the baseline terms Stardial expects in contractor agreements.
-It covers quality standards, acceptance and sign-off, security obligations, and
-subcontractor management. Individual contracts may add stricter terms, but should
-not weaken the ones below.
+It covers quality standards, acceptance and sign-off, security obligations,
+subcontractor management, and confidentiality duration. Individual contracts may
+add stricter terms, but should not weaken the ones below.
 
 ## 1. Quality Standards
 
@@ -75,6 +75,20 @@ Stardial may audit access and repository activity related to the engagement.
   at no additional cost to Stardial.
 - Stardial may object to a subcontractor for security or conflict-of-interest
   reasons, and the contractor must replace them.
+
+## 5. Confidentiality Duration
+
+- Confidential information disclosed under an engagement remains protected for
+  **5 years** after the date of disclosure, regardless of when the engagement
+  ends.
+- Trade secrets and personal data remain protected for as long as they qualify as
+  trade secrets or must be protected under applicable data protection law, even
+  if that is longer than 5 years.
+- The confidentiality obligation survives termination or expiry of the
+  engagement and binds permitted subcontractors for the same period.
+- On exit, the contractor returns or destroys confidential material within
+  **10 business days** on request, except for one archival copy retained solely
+  to meet legal or audit obligations.
 
 ## Questions
 
