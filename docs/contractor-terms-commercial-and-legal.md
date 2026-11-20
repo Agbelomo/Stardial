@@ -23,6 +23,11 @@ It supplements the statement of work.
 
 - Each party follows the laws that apply where it is established. The contractor
   is responsible for its own tax registration, filings, and work authorisation.
+- The contractor identifies the jurisdiction where the work is performed and
+  obtains every licence, permit, registration, and approval that the delivery
+  location requires before starting that work. Copies are provided to Stardial
+  on request, and any renewal or condition is tracked for the duration of the
+  engagement.
 - The contractor must not use the engagement to handle export-controlled
   technology, sanctioned parties, or restricted data. Flag anything that might
   qualify before work starts.

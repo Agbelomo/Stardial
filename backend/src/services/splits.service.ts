@@ -509,11 +509,34 @@ export async function buildUpdateCollaboratorsUnsignedXdr(
 export async function buildUpdateMetadataUnsignedXdr(input: {
   projectId: string;
   owner: string;
-  title: string;
-  projectType: string;
+  title?: string;
+  projectType?: string;
 }) {
   await assertProjectNotExpired(input.projectId);
   await assertProjectOwner(input.projectId, input.owner);
+
+  let title = input.title;
+  let projectType = input.projectType;
+  if (title === undefined || projectType === undefined) {
+    const project = await fetchProjectById(input.projectId);
+    if (!project) {
+      throw new RequestValidationError("Project not found");
+    }
+
+    const currentProject = project as Record<string, unknown>;
+    if (title === undefined) {
+      if (typeof currentProject.title !== "string") {
+        throw new RequestValidationError("Project title is unavailable");
+      }
+      title = currentProject.title;
+    }
+    if (projectType === undefined) {
+      if (typeof currentProject.projectType !== "string") {
+        throw new RequestValidationError("Project type is unavailable");
+      }
+      projectType = currentProject.projectType;
+    }
+  }
 
   const config = loadStellarConfig();
   const server = getStellarRpcServer();
@@ -542,8 +565,8 @@ export async function buildUpdateMetadataUnsignedXdr(input: {
         "update_project_metadata",
         nativeToScVal(input.projectId, { type: "symbol" }),
         ownerAddress.toScVal(),
-        nativeToScVal(input.title),
-        nativeToScVal(input.projectType)
+        nativeToScVal(title),
+        nativeToScVal(projectType)
       )
     )
     .setTimeout(300)

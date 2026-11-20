@@ -451,7 +451,7 @@ registry.registerPath({
   method: "patch",
   path: "/splits/{projectId}/metadata",
   summary: "Update project metadata (title/category)",
-  description: "Builds an unsigned XDR to update a project's title and project type. Text fields are server-side sanitized. Rejected with 401 UNAUTHORIZED when `owner` is not the on-chain project owner.",
+  description: "Builds an unsigned XDR to update a project's title and/or project type. At least one field is required; omitted fields keep their current on-chain values. Text fields are server-side sanitized. Rejected with 401 UNAUTHORIZED when `owner` is not the on-chain project owner.",
   tags: ["Splits"],
   request: {
     params: z.object({ projectId: projectIdParamSchema }),

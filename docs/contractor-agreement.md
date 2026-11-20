@@ -4,24 +4,26 @@ This document defines the baseline terms Stardial expects in contractor agreemen
 It covers quality standards, acceptance and sign-off, security obligations,
 subcontractor management, and confidentiality duration. Individual contracts may
 add stricter terms, but should not weaken the ones below.
+subcontractor management, and ongoing service levels. Individual contracts may add
+stricter terms, but should not weaken the ones below.
 
 ## 1. Quality Standards
 
 Every deliverable must state its acceptance criteria before work starts. A
 deliverable is only complete when all of the following hold:
 
-| Area | Measurable standard |
-| --- | --- |
-| Functionality | All acceptance criteria in the statement of work pass |
-| Tests | New or changed behaviour is covered by automated tests that pass in CI |
-| Review | The pull request is approved by a Stardial reviewer |
-| Documentation | User-facing behaviour changes are reflected in the `docs/` folder |
-| Style | Existing lint, format, and repository conventions are followed |
-| Security | No new high or critical findings from dependency or secret scanning |
+| Area          | Measurable standard                                                    |
+| ------------- | ---------------------------------------------------------------------- |
+| Functionality | All acceptance criteria in the statement of work pass                  |
+| Tests         | New or changed behaviour is covered by automated tests that pass in CI |
+| Review        | The pull request is approved by a Stardial reviewer                    |
+| Documentation | User-facing behaviour changes are reflected in the `docs/` folder      |
+| Style         | Existing lint, format, and repository conventions are followed         |
+| Security      | No new high or critical findings from dependency or secret scanning    |
 
-Numeric targets (latency, uptime, test coverage) are only binding when the
-statement of work lists them explicitly. Anything unmeasured is treated as not
-agreed.
+The ongoing service targets in section 5 apply whenever the statement of work
+includes operating or supporting a production service. Other numeric targets
+(such as test coverage) must be listed explicitly in the statement of work.
 
 ## 2. Review, Acceptance, and Sign-Off
 
@@ -89,6 +91,139 @@ Stardial may audit access and repository activity related to the engagement.
 - On exit, the contractor returns or destroys confidential material within
   **10 business days** on request, except for one archival copy retained solely
   to meet legal or audit obligations.
+## 5. Ongoing Service Levels
+
+### Scope and responsibilities
+
+These commitments apply during the ongoing-service term recorded in the statement
+of work, starting at production handover. They do not create an ongoing support
+obligation for a development-only engagement. Before handover, the parties must
+record the covered services and critical user operations, service term, monthly
+service fee for each service, monitoring locations and access, support channel,
+and primary and escalation contacts in the statement of work. Missing entries
+must be resolved before handover; they do not waive the targets below.
+
+The contractor owns monitoring, incident triage, recovery, status updates, and
+maintenance for covered services, including coordinating with its subcontractors
+and hosting providers. Stardial supplies agreed access and reports incidents
+through the recorded support channel. A change to scope, fees, or coverage
+requires a written change order agreed by both parties; stricter targets may be
+agreed, but these baseline commitments cannot be reduced unilaterally.
+
+### Availability and response time
+
+| Measure               | Minimum commitment                                                            | Measurement                                                                                                           |
+| --------------------- | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Availability          | **99.9%** per covered service per calendar month, 24 hours a day              | Successful synthetic checks of each agreed critical operation at least once per minute from two independent locations |
+| Service response time | **95%** of eligible requests complete within **2 seconds** per calendar month | Server-side elapsed time from request receipt to completion, including contractor-controlled dependencies             |
+
+A service is unavailable when either monitoring location shows a covered critical
+operation failing, returning an incorrect result, or exceeding its agreed timeout
+(**10 seconds** by default). Count downtime from the first failed check through
+the first subsequent successful checks of all critical operations at both
+locations. Corroborated incident logs or customer reports also count; a healthy
+process alone is not proof that an operation works. Overlapping failures count
+once per service.
+
+Availability is `100 × (eligible minutes − unavailable minutes) / eligible minutes`.
+Eligible minutes are the minutes in the active service term within the UTC
+calendar month, less permitted exclusions. Calculate without rounding before
+comparing with the target. For example, 60 unavailable minutes in a 30-day month
+with no exclusions gives **99.8611%**, missing the 99.9% target.
+
+Response-time measurement includes all valid requests to covered operations,
+including failures and timeouts; these count as exceeding the target. Exclude
+malformed or unauthorised requests and requests over agreed rate limits. External
+ledger confirmation is measured separately from API acknowledgement and must not
+be represented as completed settlement. The statement of work must name any
+operation requiring a separate end-to-end completion target before handover.
+
+Planned maintenance is excluded only with **48 hours' notice**, Stardial's written
+approval of the window, and a maximum of **4 hours per month**; overruns count as
+downtime. Emergency maintenance counts as downtime. A failure caused solely by
+Stardial or an external network outside the contractor's control may be excluded
+only for the evidenced affected duration and operations. Contractor-selected
+hosting, subcontractor failures, and failures of agreed retry or failover measures
+are not excluded. The contractor must document each exclusion in the report;
+support and communication obligations continue during excluded events.
+
+The contractor retains timestamped checks, request timing records, and incident
+records for **90 days** and gives Stardial read access. Monitoring gaps cannot be
+treated as successful operation: reconstruct them from verifiable records or
+count the unverified interval as downtime. Report a response-time period with no
+eligible requests as "no traffic", not as a measured pass. A month with no
+eligible minutes is "not applicable" for availability.
+
+### Support and escalation
+
+The table below covers general service support. For payout incidents, the
+[Payout Failure Severity Matrix](../runbooks/payout-failure-severity-matrix.md)
+governs classification (including P0), escalation, and any shorter response or
+resolution deadline. The statement of work must record the applicable runbook
+version at handover; later contractual changes require a written change order.
+Where both sets of commitments apply, meet the earlier deadline. Misses against
+these applicable deadlines count toward the incident credits below. Payout P0
+incidents also require the root-cause analysis specified below for P1 incidents.
+
+Business hours are **09:00–17:00 UTC, Monday–Friday**, excluding holidays listed in
+the statement of work before the service term starts. A business day is eight
+such hours. For general support, P1 clocks run continuously; P2 and P3 clocks
+count business hours only. Payout P0–P2 response and resolution clocks run
+continuously; payout P3 clocks count business hours.
+Clocks start at the earlier of monitoring detection or receipt through the
+recorded support channel. An automated acknowledgement is not a human response.
+
+| Priority      | Impact                                                                                           | Human response       | Restore service or provide a usable workaround       | Updates until restoration |
+| ------------- | ------------------------------------------------------------------------------------------------ | -------------------- | ---------------------------------------------------- | ------------------------- |
+| P1 — Critical | Service unavailable, funds or data at risk, or a critical operation blocked without a workaround | **30 minutes**, 24/7 | **4 hours**, 24/7                                    | Every **hour**            |
+| P2 — High     | Material degradation or a critical operation impaired with a workaround                          | **4 business hours** | **2 business days**                                  | Every **business day**    |
+| P3 — Normal   | Minor defect or support request without material service disruption                              | **1 business day**   | Fix or agreed action plan within **5 business days** | Every **2 business days** |
+
+The contractor acknowledges impact, assigns an owner, and provides the next update
+time in its response. A workaround must restore the affected operation safely;
+closing a ticket alone does not stop the restoration clock. The contractor must
+escalate any missed response or restoration deadline to both nominated escalation
+contacts immediately and continue working and providing updates. Priority may be
+lowered only with Stardial's written agreement. Security reporting under section 3
+still applies; it does not extend the shorter P1 deadline.
+
+### Reporting and remedies
+
+Within **5 business days** after each month, the contractor supplies availability
+calculations, response-time results, incident timelines, missed support targets,
+exclusions with evidence, and credits due for each covered service. For each P1
+incident or missed target, provide a root-cause analysis and corrective action
+plan with owners and dates within **5 business days** of restoration or discovery
+of the miss, whichever applies. Corrective work is at no additional charge.
+
+| Monthly availability for a covered service | Credit against that service's monthly fee |
+| ------------------------------------------ | ----------------------------------------- |
+| At least 99.9%                             | 0%                                        |
+| At least 99.0% but below 99.9%             | 5%                                        |
+| At least 95.0% but below 99.0%             | 10%                                       |
+| Below 95.0%                                | 20%                                       |
+
+Missing the monthly response-time target adds **5%**. Each incident with one or
+more missed human-response, restoration/action-plan, or update deadlines adds
+**5%**, counted once per incident. These credits add to the availability credit,
+up to **25% of the affected service's fee for that month**; for a partial month,
+use the prorated fee. Credits are automatic, require no claim, and appear on the
+next invoice. If no further invoice is due, refund them within **30 calendar
+days** of the monthly report's due date. A zero-fee service still requires
+remediation and remains subject to the repeated-failure process below.
+
+A missed target in **two consecutive months**, or **three months in any rolling
+six-month period**, constitutes a material breach. Notice, the **10-business-day**
+cure period, and termination for an uncured breach follow
+[Breach Notification and Cure](./contractor-terms-breach-and-exit.md#2-breach-notification-and-cure).
+Cure requires implementing the corrective actions and supplying evidence that
+the affected operations meet their targets; it does not erase accrued credits.
+For ongoing services, the cure-period pause in that document applies to affected
+deliverable deadlines only: availability measurement, monitoring, support,
+incident updates, and service-credit accrual continue throughout the cure period.
+Service credits do not replace those breach rights or the existing liability
+limits. Disputes about measurements or credits follow the dispute process linked
+below; undisputed credits and service obligations remain due.
 
 ## Questions
 
