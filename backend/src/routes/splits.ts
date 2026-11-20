@@ -472,10 +472,18 @@ splitsRouter.patch("/:projectId/metadata", async (req, res, next) => {
         title: parsedBody.data.title,
         projectType: parsedBody.data.projectType,
       });
-      await recordProjectEdit(parsedParams.data, parsedBody.data.owner, "update_metadata", {
-        title: parsedBody.data.title,
-        projectType: parsedBody.data.projectType
-      });
+      const changes = {
+        ...(parsedBody.data.title !== undefined ? { title: parsedBody.data.title } : {}),
+        ...(parsedBody.data.projectType !== undefined
+          ? { projectType: parsedBody.data.projectType }
+          : {}),
+      };
+      await recordProjectEdit(
+        parsedParams.data,
+        parsedBody.data.owner,
+        "update_metadata",
+        changes,
+      );
       return res.status(200).json(result);
     } catch (error) {
       if (error instanceof RequestValidationError) {

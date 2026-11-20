@@ -133,11 +133,21 @@ export const depositSchema = z.object({
   token: stellarAddressSchema.describe("token")
 });
 
-export const updateMetadataSchema = z.object({
-  owner: stellarAddressSchema.describe("owner"),
-  title: titleField,
-  projectType: projectTypeField
-});
+export const updateMetadataSchema = z
+  .object({
+    owner: stellarAddressSchema.describe("owner"),
+    title: titleField.optional(),
+    projectType: projectTypeField.optional()
+  })
+  .strict()
+  .superRefine((payload, ctx) => {
+    if (payload.title === undefined && payload.projectType === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "At least one of title or projectType must be provided"
+      });
+    }
+  });
 
 export const updateCollaboratorsSchema = z
   .object({

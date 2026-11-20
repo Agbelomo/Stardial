@@ -6,11 +6,14 @@ import { splitsRouter } from "./splits.js";
 import { requestIdMiddleware } from "../middleware/request-id.js";
 import { errorHandler, notFoundHandler } from "../middleware/error.js";
 import { getCached, invalidateCacheByPrefix, setCached } from "../services/stellar.js";
+import { setDataSourceForTests } from "../services/database.js";
+import type { DataSource } from "typeorm";
 
 const getAccountMock = vi.fn();
 const prepareTransactionMock = vi.fn();
 const simulateTransactionMock = vi.fn();
 const getEventsMock = vi.fn();
+const contractCallMock = vi.fn((method: string, ...args: unknown[]) => ({ method, args }));
 
 const serverMock = {
   getAccount: getAccountMock,
@@ -41,7 +44,7 @@ vi.mock("@stellar/stellar-sdk", () => {
     BASE_FEE: 100,
     Contract: vi.fn().mockImplementation(function () {
       return {
-        call: (method: string, ...args: unknown[]) => ({ method, args }),
+        call: contractCallMock,
       };
     }),
     TransactionBuilder: vi.fn().mockImplementation(function () {
@@ -102,6 +105,75 @@ beforeEach(() => {
 });
 
 describe("splits routes integration", () => {
+  it("PATCH metadata accepts one field and preserves omitted on-chain fields", async () => {
+    const historyRepository = {
+      find: vi.fn().mockResolvedValue([]),
+      findOne: vi.fn().mockResolvedValue(null),
+      create: vi.fn((entry: unknown) => entry),
+      save: vi.fn(async (entry: unknown) => entry),
+    };
+    setDataSourceForTests({
+      isInitialized: true,
+      getRepository: () => historyRepository,
+    } as unknown as DataSource);
+
+    invalidateCacheByPrefix("project:");
+    simulateTransactionMock.mockImplementation(async (transaction: {
+      preparedOperation?: { method?: string };
+    }) => ({
+      result: {
+        retval: transaction.preparedOperation?.method === "get_project"
+          ? {
+              owner: "GOWNER",
+              title: "Current title",
+              projectType: "current type",
+              locked: false,
+              collaborators: [],
+            }
+          : 0n,
+      },
+    }));
+    getAccountMock.mockImplementation(async (address: string) => ({ accountId: address }));
+    prepareTransactionMock.mockResolvedValue({
+      toXDR: () => "XDR_PARTIAL_METADATA",
+      sequence: "1",
+      fee: "100",
+    });
+
+    try {
+      await request(createApp())
+        .patch("/splits/project_1/metadata")
+        .send({ owner: "GOWNER", title: "Updated title" })
+        .expect(200);
+
+      const metadataCall = contractCallMock.mock.calls.find(
+        ([method]) => method === "update_project_metadata",
+      );
+      expect(metadataCall).toBeDefined();
+      const [, , , titleArgument, projectTypeArgument] = metadataCall!;
+      expect((titleArgument as { toXDR: () => string }).toXDR()).toBe(
+        "MOCKED_XDR_Updated title",
+      );
+      expect((projectTypeArgument as { toXDR: () => string }).toXDR()).toBe(
+        "MOCKED_XDR_current type",
+      );
+    } finally {
+      invalidateCacheByPrefix("project:");
+      setDataSourceForTests(null);
+    }
+  });
+
+  it("PATCH metadata rejects empty patches", async () => {
+    const response = await request(createApp())
+      .patch("/splits/project_1/metadata")
+      .send({ owner: "GOWNER" })
+      .expect(400);
+
+    expect(response.body.error).toBe("validation_error");
+    expect(simulateTransactionMock).not.toHaveBeenCalled();
+    expect(prepareTransactionMock).not.toHaveBeenCalled();
+  });
+
   it("rejects missing required create fields with field-level validation details", async () => {
     const response = await request(createApp())
       .post("/splits")
