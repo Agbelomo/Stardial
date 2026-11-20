@@ -1,9 +1,10 @@
 # Contractor Terms: Scope, Compliance, Disputes, and Exit
 
 This document sets the commercial and legal ground rules for contractor
-engagements: how scope and budget are controlled, what compliance applies to
-international work, how disagreements are resolved, what happens at the end, and
-whether the engagement may be transferred. It supplements the statement of work.
+engagements: how scope and budget are controlled, how invoices are submitted,
+approved, and paid, what compliance applies to international work, how
+disagreements are resolved, what happens at the end, and whether the engagement
+may be transferred. It supplements the statement of work.
 
 ## 1. Scope, Budget, and Change Control
 
@@ -18,6 +19,100 @@ whether the engagement may be transferred. It supplements the statement of work.
   accepted up to that point.
 - Once the not-to-exceed budget is reached, the contractor stops unless a new
   change request is approved. Unapproved overruns are not payable.
+
+## 1A. Invoicing and Payment
+
+This section sets what an invoice must contain, how Stardial approves it, when it
+is due, and what happens when payment is late. It applies to every invoice under
+a statement of work. Billing contacts, currency, and any recurring fees are named
+in the statement of work.
+
+### Invoice content
+
+Each invoice is a written document (PDF or email) and must show:
+
+1. A unique **invoice number** and the **issue date**.
+2. The contractor's legal name, address, and tax registration details, and the
+   Stardial billing entity named in the statement of work.
+3. The **statement of work reference** and, where relevant, the milestone or
+   deliverable and any approved change request the invoice covers.
+4. **Evidence of acceptance** for each deliverable billed: a link to the recorded
+   sign-off (a GitHub approval or an email confirming acceptance), or the date on
+   which deemed acceptance took effect under
+   [Review, Acceptance, and Sign-Off](./contractor-agreement.md#2-review-acceptance-and-sign-off).
+5. **Itemised charges**: a description, the quantity or hours, the rate, and the
+   amount for each line, in the currency stated in the statement of work.
+6. **Budget position**: this invoice's total, the total invoiced to date, and the
+   remaining not-to-exceed balance from section 1.
+7. **Taxes and withholding** shown separately from fees (see section 2), and any
+   service credits applied as separate deduction lines.
+8. **Payment details**: the account or address to pay, a payment reference, and
+   the due date calculated under "Due dates" below.
+
+### What may be invoiced
+
+- Work accepted under the acceptance process, including work deemed accepted.
+- Work under a change request approved in writing by both parties.
+- Recurring fees that the statement of work makes payable.
+- Not payable: work that has not been accepted, work outside the statement of
+  work and approved change requests, and any amount that takes total invoiced
+  fees above the not-to-exceed budget (see section 1).
+
+### Submission and approval
+
+1. **Submit.** The contractor emails the invoice to the billing contact named in
+   the statement of work (or, if none is named, the nominated contract contact).
+   It is received on the day it reaches that contact; one received after the end
+   of a business day, or on a non-business day, counts as received on the next
+   business day.
+2. **Completeness check.** Within **5 business days** of receipt, Stardial
+   confirms the invoice is complete or returns it with a written list of the
+   missing or incorrect items. A returned invoice is treated as not received
+   until the contractor delivers a corrected one.
+3. **Review.** Within **10 business days** of receiving a complete invoice,
+   Stardial checks it against accepted deliverables, approved change requests,
+   the budget, and credits owed, then either approves it in writing or notifies
+   the contractor of the items it disputes, with reasons.
+4. **Deemed approval.** If Stardial neither approves nor disputes the invoice
+   within those **10 business days**, the invoice is treated as approved.
+5. **Partial disputes.** Stardial approves and pays the undisputed part on time.
+   The disputed part follows the process in section 3, and the contractor issues
+   a corrected invoice or credit note once it is resolved.
+6. **Later corrections.** Approving or paying an invoice does not accept a
+   deliverable or waive any right. An overpayment or billing error found later is
+   corrected by a credit note or a deduction from the next invoice; if no further
+   invoice is due, the contractor refunds it within **30 calendar days**.
+
+### Due dates
+
+- Payment is due **30 calendar days** after Stardial receives a complete, correct
+  invoice. Approval, including deemed approval, does not change the due date.
+- If the due date is not a business day, payment is due on the next business
+  day.
+- Payment is made when Stardial initiates the transfer to the account on the
+  invoice, in the invoice currency. Each party bears its own bank charges.
+- Taxes and withholding follow section 2.
+- A disputed amount later agreed or decided to be payable is due within **10
+  business days** after the dispute is resolved.
+
+### Late payment
+
+- An undisputed amount unpaid after its due date accrues simple interest at
+  **1% per month** (or the maximum rate applicable law permits, if lower),
+  calculated daily from the day after the due date until it is paid. Interest is
+  not compounded.
+- No interest accrues on an amount disputed in good faith under section 3 while
+  the dispute is pending. If it is resolved as payable and not paid within **10
+  business days**, interest accrues on it from the end of that period.
+- The contractor claims interest with a statement showing the overdue invoice,
+  the number of days late, and the calculation. Stardial pays it with the overdue
+  amount, or within **10 business days** of the statement if the amount has
+  already been paid.
+- An undisputed amount that is still unpaid after the contractor gives written
+  notice that it is overdue is handled under
+  [Breach Notification and Cure](./contractor-terms-breach-and-exit.md#2-breach-notification-and-cure),
+  including its **10-business-day** cure period. Interest does not limit the
+  contractor's rights under that process.
 
 ## 2. International Work and Legal Compliance
 
