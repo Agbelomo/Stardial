@@ -1,3 +1,4 @@
+import { sendErrorResponse } from "../lib/api-error.js";
 import { Request, Response, NextFunction, Router } from "express";
 import {
   Address,
@@ -173,7 +174,7 @@ function sendValidationError(
   message: string,
   details: Record<string, unknown> = {}
 ) {
-  return res.status(400).json({
+  return sendErrorResponse(res, 400, {
     error: "validation_error",
     message,
     requestId,
@@ -182,7 +183,7 @@ function sendValidationError(
 }
 
 function sendRpcError(res: Response, requestId: string, message: string, status = 502) {
-  return res.status(status).json({
+  return sendErrorResponse(res, status, {
     error: "rpc_error",
     message,
     requestId,
@@ -614,7 +615,7 @@ splitsRouter.post(
             )
           : false;
         if (isPaused) {
-          return res.status(409).json({
+          return sendErrorResponse(res, 409, {
             error: "distributions_paused",
             message:
               "Distributions are paused by the contract admin. Please try again after unpause.",
@@ -1016,9 +1017,7 @@ splitsRouter.get(
           return res.status(200).json({ admin, isPaused });
         } catch (error) {
           if (error instanceof RequestValidationError) {
-            return res
-              .status(400)
-              .json({ error: "validation_error", message: error.message, requestId, details: {} });
+            return sendErrorResponse(res, 400, { error: "validation_error", message: error.message, requestId, details: {} });
           }
           throw error;
         }
@@ -1057,9 +1056,7 @@ splitsRouter.get(
           return res.status(200).json({ token, isAllowed });
         } catch (error) {
           if (error instanceof RequestValidationError) {
-            return res
-              .status(400)
-              .json({ error: "validation_error", message: error.message, requestId, details: {} });
+            return sendErrorResponse(res, 400, { error: "validation_error", message: error.message, requestId, details: {} });
           }
           throw error;
         }
@@ -1089,9 +1086,7 @@ splitsRouter.get(
           return res.status(200).json({ count });
         } catch (error) {
           if (error instanceof RequestValidationError) {
-            return res
-              .status(400)
-              .json({ error: "validation_error", message: error.message, requestId, details: {} });
+            return sendErrorResponse(res, 400, { error: "validation_error", message: error.message, requestId, details: {} });
           }
           throw error;
         }
@@ -1138,9 +1133,7 @@ splitsRouter.get(
           return res.status(200).json({ token, unallocated });
         } catch (error) {
           if (error instanceof RequestValidationError) {
-            return res
-              .status(400)
-              .json({ error: "validation_error", message: error.message, requestId, details: {} });
+            return sendErrorResponse(res, 400, { error: "validation_error", message: error.message, requestId, details: {} });
           }
           throw error;
         }
@@ -1179,9 +1172,7 @@ splitsRouter.post(
           return res.status(200).json(result);
         } catch (error) {
           if (error instanceof RequestValidationError) {
-            return res
-              .status(400)
-              .json({ error: "validation_error", message: error.message, requestId, details: {} });
+            return sendErrorResponse(res, 400, { error: "validation_error", message: error.message, requestId, details: {} });
           }
           throw error;
         }

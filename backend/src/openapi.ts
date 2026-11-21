@@ -89,14 +89,16 @@ const ApiErrorSchema = registry.register(
   "ApiError",
   z
     .object({
-      error: z.string().describe("Machine-readable error code"),
-      message: z.string().optional().describe("Human-readable error message"),
-      requestId: z.string().optional().describe("Request correlation ID"),
-      details: z.record(z.string(), z.unknown()).optional().describe("Additional error context"),
+      error: z.string().describe("Lowercase machine-readable error identifier"),
+      code: z.string().describe("Uppercase machine-readable error code"),
+      message: z.string().describe("Human-readable error message"),
+      requestId: z.string().describe("Request correlation ID, also sent in X-Request-ID"),
+      details: z.record(z.string(), z.unknown()).describe("Additional error context; empty object when absent"),
     })
     .openapi({
       example: {
-        error: "VALIDATION_ERROR",
+        error: "validation_error",
+        code: "VALIDATION_ERROR",
         message: "collaborators basisPoints must sum to exactly 10000",
         requestId: EXAMPLE_REQUEST_ID,
         details: { path: ["collaborators"] },
@@ -110,7 +112,7 @@ function apiErrorResponse(description: string, example?: Record<string, unknown>
     content: {
       "application/json": {
         schema: ApiErrorSchema,
-        ...(example ? { example } : {}),
+        ...(example ? { example: { details: {}, ...example } } : {}),
       },
     },
   };
@@ -138,56 +140,64 @@ function standardErrorResponses(options: {
   }
   if (options.unauthorized) {
     responses[401] = apiErrorResponse("Authentication required", options.unauthorizedExample ?? {
-      error: "UNAUTHORIZED",
+      error: "unauthorized",
+      code: "UNAUTHORIZED",
       message: "Missing or invalid bearer token / admin API key.",
       requestId: EXAMPLE_REQUEST_ID,
     });
   }
   if (options.forbidden) {
     responses[403] = apiErrorResponse("Access denied", {
-      error: "FORBIDDEN",
+      error: "forbidden",
+      code: "FORBIDDEN",
       message: "You do not have permission to perform this action.",
       requestId: EXAMPLE_REQUEST_ID,
     });
   }
   if (options.notFound) {
     responses[404] = apiErrorResponse("Resource not found", {
-      error: "NOT_FOUND",
+      error: "not_found",
+      code: "NOT_FOUND",
       message: `Project ${EXAMPLE_PROJECT_ID} does not exist.`,
       requestId: EXAMPLE_REQUEST_ID,
     });
   }
   if (options.conflict) {
     responses[409] = apiErrorResponse("Conflict with existing resource", options.conflictExample ?? {
-      error: "CONFLICT",
+      error: "conflict",
+      code: "CONFLICT",
       message: `A project with ID "${EXAMPLE_PROJECT_ID}" already exists.`,
       requestId: EXAMPLE_REQUEST_ID,
     });
   }
   if (options.rateLimited) {
     responses[429] = apiErrorResponse("Too many requests", {
-      error: "RATE_LIMIT_EXCEEDED",
+      error: "rate_limited",
+      code: "RATE_LIMITED",
       message: "Too many requests. Please retry after the rate limit window.",
       requestId: EXAMPLE_REQUEST_ID,
     });
   }
   if (options.serverError) {
     responses[500] = apiErrorResponse("Internal server error", options.serverErrorExample ?? {
-      error: "INTERNAL_ERROR",
+      error: "internal_error",
+      code: "INTERNAL_ERROR",
       message: "An unexpected error occurred. Please try again later.",
       requestId: EXAMPLE_REQUEST_ID,
     });
   }
   if (options.badGateway) {
     responses[502] = apiErrorResponse("Upstream RPC or contract error", options.badGatewayExample ?? {
-      error: "BAD_GATEWAY",
+      error: "rpc_error",
+      code: "RPC_ERROR",
       message: "The Stellar network RPC call failed. Please retry.",
       requestId: EXAMPLE_REQUEST_ID,
     });
   }
   if (options.unavailable) {
     responses[503] = apiErrorResponse("Service temporarily unavailable", {
-      error: "SERVICE_UNAVAILABLE",
+      error: "service_unavailable",
+      code: "SERVICE_UNAVAILABLE",
       message: "The service is temporarily unavailable. Please try again shortly.",
       requestId: EXAMPLE_REQUEST_ID,
     });
@@ -333,7 +343,8 @@ registry.registerPath({
       badGateway: true,
       serverError: true,
       badRequestExample: {
-        error: "VALIDATION_ERROR",
+        error: "validation_error",
+        code: "VALIDATION_ERROR",
         message: "collaborators basisPoints must sum to exactly 10000",
         requestId: EXAMPLE_REQUEST_ID,
         details: { path: ["collaborators"] },
@@ -438,7 +449,8 @@ registry.registerPath({
       badGateway: true,
       serverError: true,
       badRequestExample: {
-        error: "VALIDATION_ERROR",
+        error: "validation_error",
+        code: "VALIDATION_ERROR",
         message: "amount must be greater than 0",
         requestId: EXAMPLE_REQUEST_ID,
         details: { path: ["amount"] },
@@ -521,7 +533,8 @@ registry.registerPath({
       badGateway: true,
       serverError: true,
       badRequestExample: {
-        error: "VALIDATION_ERROR",
+        error: "validation_error",
+        code: "VALIDATION_ERROR",
         message: "duplicate collaborator address found",
         requestId: EXAMPLE_REQUEST_ID,
         details: { path: ["collaborators"] },
@@ -565,7 +578,8 @@ registry.registerPath({
       badGateway: true,
       serverError: true,
       badRequestExample: {
-        error: "VALIDATION_ERROR",
+        error: "validation_error",
+        code: "VALIDATION_ERROR",
         message: "Invalid projectId format.",
         requestId: EXAMPLE_REQUEST_ID,
         details: { path: ["projectId"] },
@@ -690,7 +704,8 @@ registry.registerPath({
       badGateway: true,
       serverError: true,
       badRequestExample: {
-        error: "VALIDATION_ERROR",
+        error: "validation_error",
+        code: "VALIDATION_ERROR",
         message: "Invalid query parameters.",
         requestId: EXAMPLE_REQUEST_ID,
         details: { message: "Check cursor and limit parameters." },

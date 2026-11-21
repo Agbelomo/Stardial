@@ -374,6 +374,7 @@ describe("enforcePaymentsAdminWriteEnabled: method-allowlist bypass resistance (
     const res: Partial<Response> = {
       locals: { requestId: "test-request-id" },
     };
+    res.setHeader = vi.fn().mockReturnValue(res);
     res.status = vi.fn().mockReturnValue(res);
     res.json = vi.fn().mockReturnValue(res);
     return res as Response;

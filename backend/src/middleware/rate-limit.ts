@@ -1,3 +1,4 @@
+import { sendErrorResponse } from "../lib/api-error.js";
 import rateLimit from "express-rate-limit";
 import type { Request, Response, NextFunction } from "express";
 import { logger } from "../services/logger.js";
@@ -140,7 +141,7 @@ function rateLimitHandler(req: Request, res: Response) {
     path: req.path,
     requestId,
   });
-  return res.status(429).json({
+  return sendErrorResponse(res, 429, {
     error: "rate_limited",
     code: "RATE_LIMITED",
     message: "Too many requests. Please try again later.",

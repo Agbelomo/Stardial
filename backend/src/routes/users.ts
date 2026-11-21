@@ -1,3 +1,4 @@
+import { sendErrorResponse } from "../lib/api-error.js";
 import { Router, Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { IsNull } from "typeorm";
@@ -60,7 +61,7 @@ usersRouter.post("/register", async (req: Request, res: Response, next: NextFunc
     });
 
     if (walletExists) {
-      return res.status(409).json({
+      return sendErrorResponse(res, 409, {
         error: "conflict",
         message: "Wallet address already registered.",
       });

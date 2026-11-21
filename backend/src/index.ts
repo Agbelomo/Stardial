@@ -91,8 +91,8 @@ app.use(
 // Before express.json() so 413 rejections are still counted (Issue #1090).
 app.use(payloadSizeMetricsMiddleware);
 app.use(splitLifecycleMetricsMiddleware);
-app.use(express.json({ limit: "1mb" }));
 app.use(requestIdMiddleware);
+app.use(express.json({ limit: "1mb" }));
 app.use(metricsMiddleware);
 app.use(requestTimeout());
 

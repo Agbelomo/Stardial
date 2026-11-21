@@ -1,3 +1,4 @@
+import { sendErrorResponse } from "../lib/api-error.js";
 import { Request, Response, NextFunction } from "express";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -6,7 +7,7 @@ export function requestTimeout(ms = DEFAULT_TIMEOUT_MS) {
   return (req: Request, res: Response, next: NextFunction) => {
     const timer = setTimeout(() => {
       if (!res.headersSent) {
-        res.status(504).json({
+        sendErrorResponse(res, 504, {
           error: "gateway_timeout",
           code: "GATEWAY_TIMEOUT",
           message: "Request timed out.",

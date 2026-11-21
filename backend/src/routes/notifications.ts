@@ -1,3 +1,4 @@
+import { sendErrorResponse } from "../lib/api-error.js";
 import { Router, Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { authJwtMiddleware } from "../middleware/auth-jwt.js";
@@ -152,7 +153,7 @@ notificationsRouter.put(
       return res.status(200).json(serializePreferences(updated));
     } catch (error) {
       if (error instanceof MandatoryCategoryError) {
-        return res.status(400).json({
+        return sendErrorResponse(res, 400, {
           error: "mandatory_category",
           code: "MANDATORY_CATEGORY",
           message: error.message,
@@ -182,7 +183,7 @@ notificationsRouter.post(
       if (!updated) {
         // Also the answer when the notification belongs to someone else:
         // distinguishing "not yours" from "not found" would leak existence.
-        return res.status(404).json({
+        return sendErrorResponse(res, 404, {
           error: "not_found",
           message: "Notification not found.",
         });

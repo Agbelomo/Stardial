@@ -1,18 +1,10 @@
 import type { RequestHandler } from "express";
-import { z, type ZodTypeAny } from "zod";
+import { type ZodTypeAny } from "zod";
 
 interface ValidationSchemas {
   body?: ZodTypeAny;
   params?: ZodTypeAny;
   query?: ZodTypeAny;
-}
-
-function buildValidationDetails(error: z.ZodError) {
-  return error.issues.map((issue) => ({
-    path: issue.path.join("."),
-    message: issue.message,
-    code: issue.code
-  }));
 }
 
 export function validateRequest(schemas: ValidationSchemas): RequestHandler {
@@ -29,15 +21,6 @@ export function validateRequest(schemas: ValidationSchemas): RequestHandler {
       }
       next();
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        const requestId = res.locals.requestId;
-        return res.status(400).json({
-          error: "VALIDATION_ERROR",
-          message: "Invalid request payload",
-          requestId,
-          details: buildValidationDetails(error)
-        });
-      }
       next(error);
     }
   };

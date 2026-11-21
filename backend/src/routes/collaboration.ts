@@ -1,3 +1,4 @@
+import { sendErrorResponse } from "../lib/api-error.js";
 /**
  * Collaboration routes – invitations cancel is on auth-email; this module
  * exposes project deletion safeguards (#1296) and permissions introspection
@@ -89,7 +90,7 @@ collaborationRouter.post(
       const body = deleteBodySchema.parse(req.body);
       const projectId = req.params.projectId as string;
       if (!resolveProjectDeletionSnapshot) {
-        return res.status(503).json({
+        return sendErrorResponse(res, 503, {
           error: "deletion_state_unavailable",
           message: "Project financial history could not be verified. Deletion is disabled until authoritative history is available.",
         });
@@ -97,7 +98,7 @@ collaborationRouter.post(
 
       const snapshot = await resolveProjectDeletionSnapshot(projectId);
       if (!snapshot || snapshot.projectId !== projectId) {
-        return res.status(404).json({ error: "project_not_found" });
+        return sendErrorResponse(res, 404, { error: "project_not_found" });
       }
 
       const decision = requestProjectDeletion({
@@ -108,7 +109,7 @@ collaborationRouter.post(
       });
 
       if (!decision.allowed) {
-        return res.status(409).json({
+        return sendErrorResponse(res, 409, {
           error: "deletion_blocked",
           decision,
           confirmationPhrase: CONFIRMATION_PHRASE,
@@ -166,9 +167,7 @@ collaborationRouter.post(
     } catch (error) {
       const err = error as { code?: string; status?: number; message?: string };
       if (err.status) {
-        return res
-          .status(err.status)
-          .json({ error: err.code, message: err.message });
+        return sendErrorResponse(res, err.status, { error: err.code, message: err.message });
       }
       return next(error);
     }
@@ -183,7 +182,7 @@ collaborationRouter.post(
       const invitationId = req.params.invitationId as string;
       const invitation = getInvitationById(invitationId);
       if (!invitation) {
-        return res.status(404).json({ error: "invitation_not_found" });
+        return sendErrorResponse(res, 404, { error: "invitation_not_found" });
       }
       const projectContext = invitation.projectId
         ? await resolveRoleContext(invitation.projectId)
@@ -197,9 +196,7 @@ collaborationRouter.post(
     } catch (error) {
       const err = error as { code?: string; status?: number; message?: string };
       if (err.status) {
-        return res
-          .status(err.status)
-          .json({ error: err.code, message: err.message });
+        return sendErrorResponse(res, err.status, { error: err.code, message: err.message });
       }
       return next(error);
     }
@@ -220,7 +217,7 @@ collaborationRouter.post(
       const requesterAddress = res.locals.requesterAddress as string;
       const projectContext = await resolveRoleContext(projectId);
       if (!projectContext) {
-        return res.status(404).json({ error: "project_owner_unknown" });
+        return sendErrorResponse(res, 404, { error: "project_owner_unknown" });
       }
       setProjectOwner(projectId, projectContext.owner);
       const record = transferOwnership({
@@ -236,9 +233,7 @@ collaborationRouter.post(
     } catch (error) {
       const err = error as { code?: string; status?: number; message?: string };
       if (err.status) {
-        return res
-          .status(err.status)
-          .json({ error: err.code, message: err.message });
+        return sendErrorResponse(res, err.status, { error: err.code, message: err.message });
       }
       return next(error);
     }
