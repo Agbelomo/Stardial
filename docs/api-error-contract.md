@@ -21,7 +21,9 @@ Every JSON response with a 4xx or 5xx status includes these fields:
 - `details` is always an object, empty when there is no additional context.
   Zod request validation uses `details.fieldErrors` and `details.formErrors`, whether
   the schema is parsed in a route or by `validateRequest`. Internal exception and
-  stack metadata are removed before sending details.
+  stack metadata are removed before sending details. Unknown fields rejected by
+  the shared request-validation layer use a fixed message, so hostile field
+  names are never reflected; see [API Surface Contracts](api-surface-contracts.md#request-input-validation-contract-issue-5).
 
 Route-specific fields remain available, including health component diagnostics,
 permission decisions, and retry timing. Successful JSON bodies, streaming SSE

@@ -1,5 +1,12 @@
 import { NextFunction, Request, Response, Router } from "express";
 import { AppError, ErrorCode, ErrorType } from "../lib/errors.js";
+import { validateRequest } from "../middleware/validate.js";
+import {
+  webhookDeliveryIdSchema,
+  webhookHeadersSchema,
+  webhookProviderParamsSchema,
+  type WebhookHeaders,
+} from "../schemas/api-input.schemas.js";
 import {
   extractWebhookDeliveryId,
   getWebhookSigningSecret,
@@ -16,53 +23,47 @@ function unauthorized(message: string): AppError {
   return error;
 }
 
-webhooksRouter.post("/:provider", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const rawProvider = Array.isArray(req.params.provider)
-      ? req.params.provider[0]
-      : req.params.provider;
-    const provider = normalizeProvider(rawProvider);
-    if (!provider || provider.length > 64) {
-      throw new AppError(
-        ErrorType.VALIDATION,
-        ErrorCode.VALIDATION_ERROR,
-        "Webhook provider is invalid."
-      );
-    }
+webhooksRouter.post(
+  "/:provider",
+  validateRequest({ params: webhookProviderParamsSchema, headers: webhookHeadersSchema }),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      // Provider and signature headers come from the shared validated layer.
+      const provider = normalizeProvider(req.params.provider as string);
+      const headers = (res.locals.validatedHeaders ?? {}) as WebhookHeaders;
 
-    const rawBody = (req as Request & { rawBody?: Buffer }).rawBody;
-    if (!rawBody) {
-      throw unauthorized("Webhook signature could not be verified.");
-    }
+      const rawBody = (req as Request & { rawBody?: Buffer }).rawBody;
+      if (!rawBody) {
+        throw unauthorized("Webhook signature could not be verified.");
+      }
 
-    const secret = getWebhookSigningSecret(provider);
-    if (!secret) {
-      throw unauthorized("Webhook signing is not configured.");
-    }
+      const secret = getWebhookSigningSecret(provider);
+      if (!secret) {
+        throw unauthorized("Webhook signing is not configured.");
+      }
 
-    const signature =
-      req.header("x-webhook-signature") ??
-      req.header("x-signature") ??
-      req.header("x-hub-signature-256");
-    if (!verifyWebhookSignature(rawBody, signature, secret)) {
-      throw unauthorized("Webhook signature is invalid.");
-    }
+      const signature =
+        headers["x-webhook-signature"] ??
+        headers["x-signature"] ??
+        headers["x-hub-signature-256"];
+      if (!verifyWebhookSignature(rawBody, signature, secret)) {
+        throw unauthorized("Webhook signature is invalid.");
+      }
 
-    const deliveryId = extractWebhookDeliveryId(req, req.body);
-    if (!deliveryId) {
-      throw new AppError(
-        ErrorType.VALIDATION,
-        ErrorCode.VALIDATION_ERROR,
-        "Webhook delivery ID is missing."
-      );
-    }
+      const deliveryId =
+        headers["x-webhook-id"] ??
+        headers["x-delivery-id"] ??
+        headers["x-event-id"] ??
+        extractWebhookDeliveryId(req, req.body);
+      const validatedDeliveryId = webhookDeliveryIdSchema.parse({ deliveryId }).deliveryId;
 
-    const result = await processWebhookDelivery(provider, deliveryId, req.body, rawBody);
-    return res.status(200).json({
-      received: true,
-      duplicate: result.outcome === "duplicate",
-    });
-  } catch (error) {
-    return next(error);
+      const result = await processWebhookDelivery(provider, validatedDeliveryId, req.body, rawBody);
+      return res.status(200).json({
+        received: true,
+        duplicate: result.outcome === "duplicate",
+      });
+    } catch (error) {
+      return next(error);
+    }
   }
-});
+);
