@@ -128,8 +128,15 @@ Each invoice is a written document (PDF or email) and must show:
   qualify before work starts.
 - Stardial data stays in the systems Stardial designates. The contractor must
   not move it to another country or provider without written approval.
-- Fees are exclusive of taxes; each party pays its own taxes. Where withholding
-  applies, the paying party may withhold and will provide the receipt.
+- Fees and rates in the statement of work are exclusive of VAT or other
+  transaction taxes. The contractor is responsible for its income, payroll, and
+  employment taxes and registrations. Where a transaction tax applies, the
+  contractor must state it separately on a valid tax invoice, and Stardial pays
+  it with the undisputed invoice.
+- The paying party may deduct and remit any withholding tax required by law and
+  must provide the official remittance evidence to the other party within
+  **10 business days** of receiving it. The parties will provide reasonable
+  documentation needed to apply the correct tax treatment.
 - If a local law conflicts with these terms, notify Stardial and the parties will
   agree a workaround in writing before proceeding.
 
