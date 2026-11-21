@@ -192,7 +192,12 @@ misappropriation is permitted at any stage.
 - Payment for accepted work remains due after exit; prepaid but undelivered work
   is refunded.
 
-## 5. Assignment
+## 5. Non-Solicitation
+
+- During the engagement and for **12 months** after its termination or expiry for any reason, the contractor shall not, directly or indirectly, solicit, entice away, employ, engage, or contract with any employee, contractor, or commercial partner of Stardial who was involved in or known to the contractor through the engagement, or encourage any such person to leave or terminate their relationship with Stardial.
+- General public advertisements or job postings not specifically targeted at Stardial personnel are exempt from this restriction.
+
+## 6. Assignment
 
 - Neither party may assign or transfer this engagement, in whole or in part,
   without the other party's prior written consent. An assignment made without
