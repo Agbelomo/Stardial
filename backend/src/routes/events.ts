@@ -1,3 +1,4 @@
+import { sendErrorResponse } from "../lib/api-error.js";
 import { Router, Request, Response } from "express";
 import { getSseEventBus, getSseEventName } from "../services/SseEventBus.js";
 import { getEventBus, TRANSACTION_CONFIRMED } from "../services/EventBus.js";
@@ -92,7 +93,7 @@ export function getActiveSseConnectionCount(): number {
  */
 function rejectIfShuttingDown(res: Response): boolean {
   if (!isShuttingDown()) return false;
-  res.status(503).json({
+  sendErrorResponse(res, 503, {
     error: "shutting_down",
     message: "Service is shutting down and is not accepting new event streams.",
     requestId: res.locals.requestId,
@@ -128,7 +129,7 @@ async function handleEventStream(req: Request, res: Response) {
 
   // Issue #1529: Global SSE connection limit check
   if (activeSseResponses.size >= MAX_GLOBAL_SSE_CONNECTIONS) {
-    res.status(429).json({
+    sendErrorResponse(res, 429, {
       error: "too_many_global_sse_connections",
       code: ErrorCode.RESOURCE_LIMIT_EXCEEDED,
       message: "Server has reached the maximum allowed concurrent SSE stream connections.",
@@ -148,7 +149,7 @@ async function handleEventStream(req: Request, res: Response) {
 
   const currentCount = getSubscriptionCount(txHash);
   if (currentCount >= MAX_LISTENERS_PER_TXHASH) {
-    res.status(429).json({
+    sendErrorResponse(res, 429, {
       error: "too_many_event_listeners",
       code: ErrorCode.RESOURCE_LIMIT_EXCEEDED,
       message: "Too many event stream subscribers for this transaction.",

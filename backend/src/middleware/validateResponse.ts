@@ -1,3 +1,4 @@
+import { sendErrorResponse } from "../lib/api-error.js";
 import { z, ZodError } from "zod";
 import { Request, Response, NextFunction } from "express";
 import { logger } from "../services/logger.js";
@@ -84,8 +85,7 @@ export function withResponseValidation<T>(
         });
 
         if (isStrictMode()) {
-          res.status(500);
-          return originalJson({
+          return sendErrorResponse(res, 500, {
             error: "internal_error",
             message: "Response schema validation failed.",
             requestId,

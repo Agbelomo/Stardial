@@ -1,3 +1,4 @@
+import { sendErrorResponse } from "../lib/api-error.js";
 import { Router, type NextFunction, type Request, type Response } from "express";
 import { z } from "zod";
 import { IsNull } from "typeorm";
@@ -34,7 +35,7 @@ authAccountRouter.post("/refresh", async (req: Request, res: Response, next: Nex
     const { refreshToken } = refreshTokenSchema.parse(req.body);
     const rotated = rotateRefreshToken(refreshToken);
     if (!rotated) {
-      return res.status(401).json({
+      return sendErrorResponse(res, 401, {
         error: "invalid_refresh_token",
         code: "INVALID_REFRESH_TOKEN",
         message: "Refresh token is invalid, expired, or already used.",
@@ -46,7 +47,7 @@ authAccountRouter.post("/refresh", async (req: Request, res: Response, next: Nex
     const currentVersion = await getSessionVersion(rotated.walletAddress);
     if (currentVersion !== null && currentVersion !== rotated.sessionVersion) {
       revokeRefreshTokens(rotated.walletAddress);
-      return res.status(401).json({
+      return sendErrorResponse(res, 401, {
         error: "session_revoked",
         code: "SESSION_REVOKED",
         message: "Session has been revoked. Please log in again.",
@@ -151,7 +152,7 @@ authAccountRouter.post(
           userId: user.id,
           reason: "email_unchanged",
         });
-        return res.status(400).json({
+        return sendErrorResponse(res, 400, {
           error: "email_unchanged",
           code: "EMAIL_UNCHANGED",
           message: "That is already the email address on this account.",
@@ -226,9 +227,7 @@ authAccountRouter.post(
         logAuthEvent(res, "email_change_confirmed", "failure", {
           reason: "invalid_or_expired_token",
         });
-        return res
-          .status(400)
-          .json({ error: "invalid_or_expired_token", requestId: res.locals.requestId });
+        return sendErrorResponse(res, 400, { error: "invalid_or_expired_token", requestId: res.locals.requestId });
       };
       if (!payload || !payload.uid || payload.prev === undefined || payload.sv === undefined) {
         return invalid();

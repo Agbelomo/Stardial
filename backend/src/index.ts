@@ -111,6 +111,7 @@ app.use(
   })
 );
 app.use(requestIdMiddleware);
+app.use(express.json({ limit: "1mb" }));
 app.use(metricsMiddleware);
 app.use(requestTimeout());
 

@@ -1,3 +1,4 @@
+import { sendErrorResponse } from "../lib/api-error.js";
 /**
  * Project permission middleware (#1300).
  *
@@ -48,7 +49,7 @@ export function createProjectPermissionMiddleware(
     const requesterAddress: string | undefined = res.locals.requesterAddress;
 
     if (!requesterAddress) {
-      res.status(401).json({
+      sendErrorResponse(res, 401, {
         error: "unauthorized",
         message:
           "Authenticate with a signed X-Stellar-Address header before this action.",
@@ -58,7 +59,7 @@ export function createProjectPermissionMiddleware(
 
     const projectId = req.params.projectId as string | undefined;
     if (!projectId) {
-      res.status(400).json({ error: "project_id_required" });
+      sendErrorResponse(res, 400, { error: "project_id_required" });
       return;
     }
 
@@ -76,7 +77,7 @@ export function createProjectPermissionMiddleware(
       next();
     } catch (err: unknown) {
       const e = err as { role?: string | null; reason?: string };
-      res.status(403).json({
+      sendErrorResponse(res, 403, {
         error: "permission_denied",
         permission,
         role: e.role ?? null,

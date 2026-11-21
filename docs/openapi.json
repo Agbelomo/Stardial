@@ -176,25 +176,30 @@
       },
       "ApiError": {
         "example": {
+          "code": "VALIDATION_ERROR",
           "details": {
             "path": [
               "collaborators"
             ]
           },
-          "error": "VALIDATION_ERROR",
+          "error": "validation_error",
           "message": "collaborators basisPoints must sum to exactly 10000",
           "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
         },
         "properties": {
+          "code": {
+            "description": "Uppercase machine-readable error code",
+            "type": "string"
+          },
           "details": {
             "additionalProperties": {
               "nullable": true
             },
-            "description": "Additional error context",
+            "description": "Additional error context; empty object when absent",
             "type": "object"
           },
           "error": {
-            "description": "Machine-readable error code",
+            "description": "Lowercase machine-readable error identifier",
             "type": "string"
           },
           "message": {
@@ -202,12 +207,16 @@
             "type": "string"
           },
           "requestId": {
-            "description": "Request correlation ID",
+            "description": "Request correlation ID, also sent in X-Request-ID",
             "type": "string"
           }
         },
         "required": [
-          "error"
+          "error",
+          "code",
+          "message",
+          "requestId",
+          "details"
         ],
         "type": "object"
       },
@@ -1037,7 +1046,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "INTERNAL_ERROR",
+                  "code": "INTERNAL_ERROR",
+                  "details": {},
+                  "error": "internal_error",
                   "message": "An unexpected error occurred. Please try again later.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -1103,7 +1114,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "INTERNAL_ERROR",
+                  "code": "INTERNAL_ERROR",
+                  "details": {},
+                  "error": "internal_error",
                   "message": "An unexpected error occurred. Please try again later.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -1200,7 +1213,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "RATE_LIMIT_EXCEEDED",
+                  "code": "RATE_LIMITED",
+                  "details": {},
+                  "error": "rate_limited",
                   "message": "Too many requests. Please retry after the rate limit window.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -1215,7 +1230,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "INTERNAL_ERROR",
+                  "code": "INTERNAL_ERROR",
+                  "details": {},
+                  "error": "internal_error",
                   "message": "An unexpected error occurred. Please try again later.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -1230,7 +1247,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "BAD_GATEWAY",
+                  "code": "RPC_ERROR",
+                  "details": {},
+                  "error": "rpc_error",
                   "message": "The Stellar network RPC call failed. Please retry.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -1382,12 +1401,13 @@
             "content": {
               "application/json": {
                 "example": {
+                  "code": "VALIDATION_ERROR",
                   "details": {
                     "path": [
                       "collaborators"
                     ]
                   },
-                  "error": "VALIDATION_ERROR",
+                  "error": "validation_error",
                   "message": "collaborators basisPoints must sum to exactly 10000",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -1403,6 +1423,7 @@
               "application/json": {
                 "example": {
                   "code": "IDEMPOTENCY_KEY_CONFLICT",
+                  "details": {},
                   "error": "IDEMPOTENCY_KEY_CONFLICT",
                   "message": "Idempotency-Key was already used with a different request payload.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
@@ -1418,7 +1439,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "INTERNAL_ERROR",
+                  "code": "INTERNAL_ERROR",
+                  "details": {},
+                  "error": "internal_error",
                   "message": "An unexpected error occurred. Please try again later.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -1433,7 +1456,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "BAD_GATEWAY",
+                  "code": "RPC_ERROR",
+                  "details": {},
+                  "error": "rpc_error",
                   "message": "The Stellar network RPC call failed. Please retry.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -1508,7 +1533,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "UNAUTHORIZED",
+                  "code": "UNAUTHORIZED",
+                  "details": {},
+                  "error": "unauthorized",
                   "message": "Missing or invalid bearer token / admin API key.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -1523,7 +1550,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "INTERNAL_ERROR",
+                  "code": "INTERNAL_ERROR",
+                  "details": {},
+                  "error": "internal_error",
                   "message": "An unexpected error occurred. Please try again later.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -1538,7 +1567,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "SERVICE_UNAVAILABLE",
+                  "code": "SERVICE_UNAVAILABLE",
+                  "details": {},
+                  "error": "service_unavailable",
                   "message": "The service is temporarily unavailable. Please try again shortly.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -1633,7 +1664,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "UNAUTHORIZED",
+                  "code": "UNAUTHORIZED",
+                  "details": {},
+                  "error": "unauthorized",
                   "message": "Missing or invalid bearer token / admin API key.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -1648,7 +1681,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "FORBIDDEN",
+                  "code": "FORBIDDEN",
+                  "details": {},
+                  "error": "forbidden",
                   "message": "You do not have permission to perform this action.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -1663,7 +1698,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "INTERNAL_ERROR",
+                  "code": "INTERNAL_ERROR",
+                  "details": {},
+                  "error": "internal_error",
                   "message": "An unexpected error occurred. Please try again later.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -1678,7 +1715,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "BAD_GATEWAY",
+                  "code": "RPC_ERROR",
+                  "details": {},
+                  "error": "rpc_error",
                   "message": "The Stellar network RPC call failed. Please retry.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -1719,7 +1758,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "UNAUTHORIZED",
+                  "code": "UNAUTHORIZED",
+                  "details": {},
+                  "error": "unauthorized",
                   "message": "Missing or invalid bearer token / admin API key.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -1734,7 +1775,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "INTERNAL_ERROR",
+                  "code": "INTERNAL_ERROR",
+                  "details": {},
+                  "error": "internal_error",
                   "message": "An unexpected error occurred. Please try again later.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -1814,7 +1857,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "UNAUTHORIZED",
+                  "code": "UNAUTHORIZED",
+                  "details": {},
+                  "error": "unauthorized",
                   "message": "Missing or invalid bearer token / admin API key.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -1829,7 +1874,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "INTERNAL_ERROR",
+                  "code": "INTERNAL_ERROR",
+                  "details": {},
+                  "error": "internal_error",
                   "message": "An unexpected error occurred. Please try again later.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -1844,7 +1891,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "SERVICE_UNAVAILABLE",
+                  "code": "SERVICE_UNAVAILABLE",
+                  "details": {},
+                  "error": "service_unavailable",
                   "message": "The service is temporarily unavailable. Please try again shortly.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -1908,7 +1957,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "UNAUTHORIZED",
+                  "code": "UNAUTHORIZED",
+                  "details": {},
+                  "error": "unauthorized",
                   "message": "Missing or invalid bearer token / admin API key.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -1923,7 +1974,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "INTERNAL_ERROR",
+                  "code": "INTERNAL_ERROR",
+                  "details": {},
+                  "error": "internal_error",
                   "message": "An unexpected error occurred. Please try again later.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -1996,7 +2049,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "UNAUTHORIZED",
+                  "code": "UNAUTHORIZED",
+                  "details": {},
+                  "error": "unauthorized",
                   "message": "Missing or invalid bearer token / admin API key.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -2011,7 +2066,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "INTERNAL_ERROR",
+                  "code": "INTERNAL_ERROR",
+                  "details": {},
+                  "error": "internal_error",
                   "message": "An unexpected error occurred. Please try again later.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -2026,7 +2083,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "SERVICE_UNAVAILABLE",
+                  "code": "SERVICE_UNAVAILABLE",
+                  "details": {},
+                  "error": "service_unavailable",
                   "message": "The service is temporarily unavailable. Please try again shortly.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -2067,7 +2126,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "UNAUTHORIZED",
+                  "code": "UNAUTHORIZED",
+                  "details": {},
+                  "error": "unauthorized",
                   "message": "Missing or invalid bearer token / admin API key.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -2082,7 +2143,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "INTERNAL_ERROR",
+                  "code": "INTERNAL_ERROR",
+                  "details": {},
+                  "error": "internal_error",
                   "message": "An unexpected error occurred. Please try again later.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -2123,7 +2186,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "UNAUTHORIZED",
+                  "code": "UNAUTHORIZED",
+                  "details": {},
+                  "error": "unauthorized",
                   "message": "Missing or invalid bearer token / admin API key.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -2138,7 +2203,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "INTERNAL_ERROR",
+                  "code": "INTERNAL_ERROR",
+                  "details": {},
+                  "error": "internal_error",
                   "message": "An unexpected error occurred. Please try again later.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -2202,7 +2269,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "UNAUTHORIZED",
+                  "code": "UNAUTHORIZED",
+                  "details": {},
+                  "error": "unauthorized",
                   "message": "Missing or invalid bearer token / admin API key.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -2217,7 +2286,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "INTERNAL_ERROR",
+                  "code": "INTERNAL_ERROR",
+                  "details": {},
+                  "error": "internal_error",
                   "message": "An unexpected error occurred. Please try again later.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -2290,7 +2361,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "UNAUTHORIZED",
+                  "code": "UNAUTHORIZED",
+                  "details": {},
+                  "error": "unauthorized",
                   "message": "Missing or invalid bearer token / admin API key.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -2305,7 +2378,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "INTERNAL_ERROR",
+                  "code": "INTERNAL_ERROR",
+                  "details": {},
+                  "error": "internal_error",
                   "message": "An unexpected error occurred. Please try again later.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -2320,7 +2395,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "SERVICE_UNAVAILABLE",
+                  "code": "SERVICE_UNAVAILABLE",
+                  "details": {},
+                  "error": "service_unavailable",
                   "message": "The service is temporarily unavailable. Please try again shortly.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -2415,7 +2492,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "UNAUTHORIZED",
+                  "code": "UNAUTHORIZED",
+                  "details": {},
+                  "error": "unauthorized",
                   "message": "Missing or invalid bearer token / admin API key.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -2430,7 +2509,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "INTERNAL_ERROR",
+                  "code": "INTERNAL_ERROR",
+                  "details": {},
+                  "error": "internal_error",
                   "message": "An unexpected error occurred. Please try again later.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -2445,7 +2526,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "SERVICE_UNAVAILABLE",
+                  "code": "SERVICE_UNAVAILABLE",
+                  "details": {},
+                  "error": "service_unavailable",
                   "message": "The service is temporarily unavailable. Please try again shortly.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -2509,7 +2592,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "NOT_FOUND",
+                  "code": "NOT_FOUND",
+                  "details": {},
+                  "error": "not_found",
                   "message": "Project afrobeats_001 does not exist.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -2524,7 +2609,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "INTERNAL_ERROR",
+                  "code": "INTERNAL_ERROR",
+                  "details": {},
+                  "error": "internal_error",
                   "message": "An unexpected error occurred. Please try again later.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -2539,7 +2626,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "BAD_GATEWAY",
+                  "code": "RPC_ERROR",
+                  "details": {},
+                  "error": "rpc_error",
                   "message": "The Stellar network RPC call failed. Please retry.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -2617,7 +2706,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "NOT_FOUND",
+                  "code": "NOT_FOUND",
+                  "details": {},
+                  "error": "not_found",
                   "message": "Project afrobeats_001 does not exist.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -2632,7 +2723,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "INTERNAL_ERROR",
+                  "code": "INTERNAL_ERROR",
+                  "details": {},
+                  "error": "internal_error",
                   "message": "An unexpected error occurred. Please try again later.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -2647,7 +2740,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "BAD_GATEWAY",
+                  "code": "RPC_ERROR",
+                  "details": {},
+                  "error": "rpc_error",
                   "message": "The Stellar network RPC call failed. Please retry.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -2717,7 +2812,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "NOT_FOUND",
+                  "code": "NOT_FOUND",
+                  "details": {},
+                  "error": "not_found",
                   "message": "Project afrobeats_001 does not exist.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -2732,7 +2829,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "INTERNAL_ERROR",
+                  "code": "INTERNAL_ERROR",
+                  "details": {},
+                  "error": "internal_error",
                   "message": "An unexpected error occurred. Please try again later.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -2747,7 +2846,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "BAD_GATEWAY",
+                  "code": "RPC_ERROR",
+                  "details": {},
+                  "error": "rpc_error",
                   "message": "The Stellar network RPC call failed. Please retry.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -2872,12 +2973,13 @@
             "content": {
               "application/json": {
                 "example": {
+                  "code": "VALIDATION_ERROR",
                   "details": {
                     "path": [
                       "collaborators"
                     ]
                   },
-                  "error": "VALIDATION_ERROR",
+                  "error": "validation_error",
                   "message": "duplicate collaborator address found",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -2914,7 +3016,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "NOT_FOUND",
+                  "code": "NOT_FOUND",
+                  "details": {},
+                  "error": "not_found",
                   "message": "Project afrobeats_001 does not exist.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -2929,7 +3033,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "INTERNAL_ERROR",
+                  "code": "INTERNAL_ERROR",
+                  "details": {},
+                  "error": "internal_error",
                   "message": "An unexpected error occurred. Please try again later.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -2944,7 +3050,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "BAD_GATEWAY",
+                  "code": "RPC_ERROR",
+                  "details": {},
+                  "error": "rpc_error",
                   "message": "The Stellar network RPC call failed. Please retry.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -3041,12 +3149,13 @@
             "content": {
               "application/json": {
                 "example": {
+                  "code": "VALIDATION_ERROR",
                   "details": {
                     "path": [
                       "amount"
                     ]
                   },
-                  "error": "VALIDATION_ERROR",
+                  "error": "validation_error",
                   "message": "amount must be greater than 0",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -3061,7 +3170,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "NOT_FOUND",
+                  "code": "NOT_FOUND",
+                  "details": {},
+                  "error": "not_found",
                   "message": "Project afrobeats_001 does not exist.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -3076,7 +3187,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "INTERNAL_ERROR",
+                  "code": "INTERNAL_ERROR",
+                  "details": {},
+                  "error": "internal_error",
                   "message": "An unexpected error occurred. Please try again later.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -3091,7 +3204,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "BAD_GATEWAY",
+                  "code": "RPC_ERROR",
+                  "details": {},
+                  "error": "rpc_error",
                   "message": "The Stellar network RPC call failed. Please retry.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -3170,12 +3285,13 @@
             "content": {
               "application/json": {
                 "example": {
+                  "code": "VALIDATION_ERROR",
                   "details": {
                     "path": [
                       "projectId"
                     ]
                   },
-                  "error": "VALIDATION_ERROR",
+                  "error": "validation_error",
                   "message": "Invalid projectId format.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -3190,7 +3306,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "NOT_FOUND",
+                  "code": "NOT_FOUND",
+                  "details": {},
+                  "error": "not_found",
                   "message": "Project afrobeats_001 does not exist.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -3205,7 +3323,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "INTERNAL_ERROR",
+                  "code": "INTERNAL_ERROR",
+                  "details": {},
+                  "error": "internal_error",
                   "message": "An unexpected error occurred. Please try again later.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -3220,7 +3340,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "BAD_GATEWAY",
+                  "code": "RPC_ERROR",
+                  "details": {},
+                  "error": "rpc_error",
                   "message": "The Stellar network RPC call failed. Please retry.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -3329,10 +3451,11 @@
             "content": {
               "application/json": {
                 "example": {
+                  "code": "VALIDATION_ERROR",
                   "details": {
                     "message": "Check cursor and limit parameters."
                   },
-                  "error": "VALIDATION_ERROR",
+                  "error": "validation_error",
                   "message": "Invalid query parameters.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -3347,7 +3470,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "NOT_FOUND",
+                  "code": "NOT_FOUND",
+                  "details": {},
+                  "error": "not_found",
                   "message": "Project afrobeats_001 does not exist.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -3362,7 +3487,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "INTERNAL_ERROR",
+                  "code": "INTERNAL_ERROR",
+                  "details": {},
+                  "error": "internal_error",
                   "message": "An unexpected error occurred. Please try again later.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -3377,7 +3504,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "BAD_GATEWAY",
+                  "code": "RPC_ERROR",
+                  "details": {},
+                  "error": "rpc_error",
                   "message": "The Stellar network RPC call failed. Please retry.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -3477,7 +3606,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "NOT_FOUND",
+                  "code": "NOT_FOUND",
+                  "details": {},
+                  "error": "not_found",
                   "message": "Project afrobeats_001 does not exist.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -3492,7 +3623,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "INTERNAL_ERROR",
+                  "code": "INTERNAL_ERROR",
+                  "details": {},
+                  "error": "internal_error",
                   "message": "An unexpected error occurred. Please try again later.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -3507,7 +3640,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "BAD_GATEWAY",
+                  "code": "RPC_ERROR",
+                  "details": {},
+                  "error": "rpc_error",
                   "message": "The Stellar network RPC call failed. Please retry.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -3614,7 +3749,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "NOT_FOUND",
+                  "code": "NOT_FOUND",
+                  "details": {},
+                  "error": "not_found",
                   "message": "Project afrobeats_001 does not exist.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -3629,7 +3766,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "INTERNAL_ERROR",
+                  "code": "INTERNAL_ERROR",
+                  "details": {},
+                  "error": "internal_error",
                   "message": "An unexpected error occurred. Please try again later.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -3644,7 +3783,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "BAD_GATEWAY",
+                  "code": "RPC_ERROR",
+                  "details": {},
+                  "error": "rpc_error",
                   "message": "The Stellar network RPC call failed. Please retry.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -3839,7 +3980,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "UNAUTHORIZED",
+                  "code": "UNAUTHORIZED",
+                  "details": {},
+                  "error": "unauthorized",
                   "message": "Missing or invalid bearer token / admin API key.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -3854,7 +3997,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "INTERNAL_ERROR",
+                  "code": "INTERNAL_ERROR",
+                  "details": {},
+                  "error": "internal_error",
                   "message": "An unexpected error occurred. Please try again later.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -4055,7 +4200,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "INTERNAL_ERROR",
+                  "code": "INTERNAL_ERROR",
+                  "details": {},
+                  "error": "internal_error",
                   "message": "An unexpected error occurred. Please try again later.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -4154,7 +4301,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "NOT_FOUND",
+                  "code": "NOT_FOUND",
+                  "details": {},
+                  "error": "not_found",
                   "message": "Project afrobeats_001 does not exist.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -4169,7 +4318,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "INTERNAL_ERROR",
+                  "code": "INTERNAL_ERROR",
+                  "details": {},
+                  "error": "internal_error",
                   "message": "An unexpected error occurred. Please try again later.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -4336,7 +4487,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "INTERNAL_ERROR",
+                  "code": "INTERNAL_ERROR",
+                  "details": {},
+                  "error": "internal_error",
                   "message": "An unexpected error occurred. Please try again later.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -4434,7 +4587,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "NOT_FOUND",
+                  "code": "NOT_FOUND",
+                  "details": {},
+                  "error": "not_found",
                   "message": "Project afrobeats_001 does not exist.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -4449,7 +4604,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "INTERNAL_ERROR",
+                  "code": "INTERNAL_ERROR",
+                  "details": {},
+                  "error": "internal_error",
                   "message": "An unexpected error occurred. Please try again later.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -4574,7 +4731,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "INTERNAL_ERROR",
+                  "code": "INTERNAL_ERROR",
+                  "details": {},
+                  "error": "internal_error",
                   "message": "An unexpected error occurred. Please try again later.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -4623,7 +4782,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "UNAUTHORIZED",
+                  "code": "UNAUTHORIZED",
+                  "details": {},
+                  "error": "unauthorized",
                   "message": "Missing or invalid bearer token / admin API key.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -4638,7 +4799,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "NOT_FOUND",
+                  "code": "NOT_FOUND",
+                  "details": {},
+                  "error": "not_found",
                   "message": "Project afrobeats_001 does not exist.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -4653,7 +4816,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "INTERNAL_ERROR",
+                  "code": "INTERNAL_ERROR",
+                  "details": {},
+                  "error": "internal_error",
                   "message": "An unexpected error occurred. Please try again later.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -4732,7 +4897,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "UNAUTHORIZED",
+                  "code": "UNAUTHORIZED",
+                  "details": {},
+                  "error": "unauthorized",
                   "message": "Missing or invalid bearer token / admin API key.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -4747,7 +4914,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "NOT_FOUND",
+                  "code": "NOT_FOUND",
+                  "details": {},
+                  "error": "not_found",
                   "message": "Project afrobeats_001 does not exist.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -4762,7 +4931,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "INTERNAL_ERROR",
+                  "code": "INTERNAL_ERROR",
+                  "details": {},
+                  "error": "internal_error",
                   "message": "An unexpected error occurred. Please try again later.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -4871,7 +5042,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "UNAUTHORIZED",
+                  "code": "UNAUTHORIZED",
+                  "details": {},
+                  "error": "unauthorized",
                   "message": "Missing or invalid bearer token / admin API key.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -4886,7 +5059,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "NOT_FOUND",
+                  "code": "NOT_FOUND",
+                  "details": {},
+                  "error": "not_found",
                   "message": "Project afrobeats_001 does not exist.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -4901,7 +5076,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "INTERNAL_ERROR",
+                  "code": "INTERNAL_ERROR",
+                  "details": {},
+                  "error": "internal_error",
                   "message": "An unexpected error occurred. Please try again later.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -4939,6 +5116,11 @@
                   },
                   "email": {
                     "format": "email",
+                    "type": "string"
+                  },
+                  "password": {
+                    "maxLength": 72,
+                    "minLength": 8,
                     "type": "string"
                   },
                   "role": {
@@ -5028,7 +5210,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "CONFLICT",
+                  "code": "CONFLICT",
+                  "details": {},
+                  "error": "conflict",
                   "message": "A project with ID \"afrobeats_001\" already exists.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -5043,7 +5227,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "INTERNAL_ERROR",
+                  "code": "INTERNAL_ERROR",
+                  "details": {},
+                  "error": "internal_error",
                   "message": "An unexpected error occurred. Please try again later.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -5140,7 +5326,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "NOT_FOUND",
+                  "code": "NOT_FOUND",
+                  "details": {},
+                  "error": "not_found",
                   "message": "Project afrobeats_001 does not exist.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
@@ -5155,7 +5343,9 @@
             "content": {
               "application/json": {
                 "example": {
-                  "error": "INTERNAL_ERROR",
+                  "code": "INTERNAL_ERROR",
+                  "details": {},
+                  "error": "internal_error",
                   "message": "An unexpected error occurred. Please try again later.",
                   "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d"
                 },
