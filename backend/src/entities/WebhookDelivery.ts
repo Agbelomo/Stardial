@@ -19,6 +19,9 @@ export class WebhookDelivery {
   @Column({ type: "varchar", length: 64 })
   payloadHash!: string;
 
+  @Column({ type: "uuid", nullable: true })
+  claimToken!: string | null;
+
   @Column({
     type: "enum",
     enum: WEBHOOK_DELIVERY_STATUSES,

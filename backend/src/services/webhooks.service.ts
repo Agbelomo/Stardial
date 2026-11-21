@@ -1,10 +1,11 @@
-import { createHash, createHmac, timingSafeEqual } from "crypto";
+import { createHash, createHmac, randomUUID, timingSafeEqual } from "crypto";
 import type { Request } from "express";
 import { withTransaction } from "./database.js";
 
 export interface WebhookClaim {
   claimed: boolean;
   deliveryId: string;
+  claimToken: string | null;
   status: "processing" | "completed" | "failed";
   attempts: number;
 }
@@ -20,8 +21,19 @@ export interface WebhookDeliveryStore {
     payloadHash: string,
     leaseMs: number
   ): Promise<WebhookClaim>;
-  complete(provider: string, deliveryId: string): Promise<void>;
-  fail(provider: string, deliveryId: string, failureCode: string): Promise<void>;
+  renew(
+    provider: string,
+    deliveryId: string,
+    claimToken: string,
+    leaseMs: number
+  ): Promise<boolean>;
+  complete(provider: string, deliveryId: string, claimToken: string): Promise<void>;
+  fail(
+    provider: string,
+    deliveryId: string,
+    claimToken: string,
+    failureCode: string
+  ): Promise<void>;
 }
 
 const processors = new Map<string, WebhookProcessor>();
@@ -115,19 +127,21 @@ export class PostgresWebhookDeliveryStore implements WebhookDeliveryStore {
     payloadHash: string,
     leaseMs: number
   ): Promise<WebhookClaim> {
+    const claimToken = randomUUID();
     return withTransaction(async (queryRunner) => {
       const result = await queryRunner.query(
         `
           INSERT INTO "webhook_deliveries"
-            ("provider", "deliveryId", "payloadHash", "status", "attempts",
+            ("provider", "deliveryId", "payloadHash", "claimToken", "status", "attempts",
              "processingStartedAt", "leaseExpiresAt")
-          VALUES ($1, $2, $3, 'processing', 1, now(), now() + ($4 * interval '1 millisecond'))
+          VALUES ($1, $2, $3, $4, 'processing', 1, now(), now() + ($5 * interval '1 millisecond'))
           ON CONFLICT ("provider", "deliveryId") DO UPDATE
           SET "status" = 'processing',
               "payloadHash" = EXCLUDED."payloadHash",
+              "claimToken" = EXCLUDED."claimToken",
               "attempts" = "webhook_deliveries"."attempts" + 1,
               "processingStartedAt" = now(),
-              "leaseExpiresAt" = now() + ($4 * interval '1 millisecond'),
+              "leaseExpiresAt" = now() + ($5 * interval '1 millisecond'),
               "failedAt" = NULL,
               "failureCode" = NULL
           WHERE "webhook_deliveries"."status" = 'failed'
@@ -135,13 +149,14 @@ export class PostgresWebhookDeliveryStore implements WebhookDeliveryStore {
                  AND "webhook_deliveries"."leaseExpiresAt" <= now())
           RETURNING "status", "attempts"
         `,
-        [provider, deliveryId, payloadHash, leaseMs]
+        [provider, deliveryId, payloadHash, claimToken, leaseMs]
       );
 
       if (result.length === 1) {
         return {
           claimed: true,
           deliveryId,
+          claimToken,
           status: "processing",
           attempts: Number(result[0].attempts),
         };
@@ -158,30 +173,60 @@ export class PostgresWebhookDeliveryStore implements WebhookDeliveryStore {
       return {
         claimed: false,
         deliveryId,
+        claimToken: null,
         status: row.status,
         attempts: Number(row.attempts),
       };
     });
   }
 
-  async complete(provider: string, deliveryId: string): Promise<void> {
-    await withTransaction(async (queryRunner) => {
-      await queryRunner.query(
+  async renew(
+    provider: string,
+    deliveryId: string,
+    claimToken: string,
+    leaseMs: number
+  ): Promise<boolean> {
+    return withTransaction(async (queryRunner) => {
+      const result = await queryRunner.query(
         `UPDATE "webhook_deliveries"
-         SET "status" = 'completed', "completedAt" = now(), "failedAt" = NULL
-         WHERE "provider" = $1 AND "deliveryId" = $2`,
-        [provider, deliveryId]
+         SET "leaseExpiresAt" = now() + ($4 * interval '1 millisecond')
+         WHERE "provider" = $1 AND "deliveryId" = $2 AND "claimToken" = $3
+           AND "status" = 'processing' AND "leaseExpiresAt" > now()
+         RETURNING 1`,
+        [provider, deliveryId, claimToken, leaseMs]
       );
+      return result.length === 1;
     });
   }
 
-  async fail(provider: string, deliveryId: string, failureCode: string): Promise<void> {
+  async complete(provider: string, deliveryId: string, claimToken: string): Promise<void> {
+    await withTransaction(async (queryRunner) => {
+      const result = await queryRunner.query(
+        `UPDATE "webhook_deliveries"
+         SET "status" = 'completed', "completedAt" = now(), "failedAt" = NULL
+         WHERE "provider" = $1 AND "deliveryId" = $2 AND "claimToken" = $3
+           AND "status" = 'processing' AND "leaseExpiresAt" > now()
+         RETURNING 1`,
+        [provider, deliveryId, claimToken]
+      );
+      if (result.length !== 1)
+        throw new Error("Webhook delivery claim was lost before completion.");
+    });
+  }
+
+  async fail(
+    provider: string,
+    deliveryId: string,
+    claimToken: string,
+    failureCode: string
+  ): Promise<void> {
     await withTransaction(async (queryRunner) => {
       await queryRunner.query(
         `UPDATE "webhook_deliveries"
-         SET "status" = 'failed', "failedAt" = now(), "failureCode" = $3
-         WHERE "provider" = $1 AND "deliveryId" = $2 AND "status" = 'processing'`,
-        [provider, deliveryId, failureCode]
+         SET "status" = 'failed', "failedAt" = now(), "failureCode" = $4
+         WHERE "provider" = $1 AND "deliveryId" = $2 AND "claimToken" = $3
+           AND "status" = 'processing' AND "leaseExpiresAt" > now()`,
+        [provider, deliveryId, claimToken, failureCode]
       );
     });
   }
@@ -201,14 +246,45 @@ export async function processWebhookDelivery(
   const claim = await store.claim(normalized, deliveryId, hashWebhookPayload(rawBody), leaseMs);
   if (!claim.claimed) return { outcome: "duplicate", claim };
 
+  const claimToken = claim.claimToken;
+  if (!claimToken) throw new Error("Webhook delivery claim has no ownership token.");
+
+  let heartbeatError: unknown;
+  let renewalInFlight: Promise<void> | null = null;
+  const heartbeat = setInterval(
+    () => {
+      if (renewalInFlight) return;
+      renewalInFlight = store
+        .renew(normalized, deliveryId, claimToken, leaseMs)
+        .then((renewed) => {
+          if (!renewed) {
+            heartbeatError = new Error("Webhook delivery claim was lost during processing.");
+          }
+        })
+        .catch((error: unknown) => {
+          heartbeatError = error;
+        })
+        .finally(() => {
+          renewalInFlight = null;
+        });
+    },
+    Math.max(1, Math.floor(leaseMs / 3))
+  );
+  heartbeat.unref();
+
   try {
     const processor = processors.get(normalized);
     if (processor) await processor(normalized, deliveryId, payload);
-    await store.complete(normalized, deliveryId);
+    clearInterval(heartbeat);
+    if (renewalInFlight) await renewalInFlight;
+    if (heartbeatError) throw heartbeatError;
+    await store.complete(normalized, deliveryId, claimToken);
     return { outcome: "processed", claim };
   } catch (error) {
+    clearInterval(heartbeat);
+    if (renewalInFlight) await renewalInFlight;
     const code = error instanceof Error && error.name ? error.name : "PROCESSING_FAILED";
-    await store.fail(normalized, deliveryId, code.slice(0, 128));
+    await store.fail(normalized, deliveryId, claimToken, code.slice(0, 128));
     throw error;
   }
 }

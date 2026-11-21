@@ -1,6 +1,8 @@
 import { createHmac } from "crypto";
 import type { Request } from "express";
+import type { QueryRunner } from "typeorm";
 import { describe, expect, it, vi } from "vitest";
+import { AddWebhookDeliveries1760000000016 } from "../migrations/1760000000016-AddWebhookDeliveries.js";
 import {
   extractWebhookDeliveryId,
   hashWebhookPayload,
@@ -13,39 +15,61 @@ import {
 class MemoryWebhookStore implements WebhookDeliveryStore {
   readonly deliveries = new Map<
     string,
-    { status: "processing" | "completed" | "failed"; attempts: number }
+    {
+      status: "processing" | "completed" | "failed";
+      attempts: number;
+      claimToken: string;
+      leaseExpiresAt: number;
+    }
   >();
 
   async claim(provider: string, deliveryId: string, _payloadHash: string, _leaseMs: number) {
     const key = `${provider}:${deliveryId}`;
     const existing = this.deliveries.get(key);
-    if (!existing) {
-      this.deliveries.set(key, { status: "processing", attempts: 1 });
-      return { claimed: true, deliveryId, status: "processing" as const, attempts: 1 };
-    }
-    if (existing.status === "failed") {
-      existing.status = "processing";
-      existing.attempts++;
+    if (!existing || existing.status === "failed" || existing.leaseExpiresAt <= Date.now()) {
+      const attempts = existing ? existing.attempts + 1 : 1;
+      const claimToken = `${key}:${attempts}`;
+      this.deliveries.set(key, {
+        status: "processing",
+        attempts,
+        claimToken,
+        leaseExpiresAt: Date.now() + _leaseMs,
+      });
       return {
         claimed: true,
         deliveryId,
+        claimToken,
         status: "processing" as const,
-        attempts: existing.attempts,
+        attempts,
       };
     }
-    return { claimed: false, deliveryId, status: existing.status, attempts: existing.attempts };
+    return {
+      claimed: false,
+      deliveryId,
+      claimToken: null,
+      status: existing.status,
+      attempts: existing.attempts,
+    };
   }
 
-  async complete(provider: string, deliveryId: string) {
-    const key = `${provider}:${deliveryId}`;
-    const row = this.deliveries.get(key);
-    if (row) row.status = "completed";
+  async renew(provider: string, deliveryId: string, claimToken: string, leaseMs: number) {
+    const row = this.deliveries.get(`${provider}:${deliveryId}`);
+    if (!row || row.status !== "processing" || row.claimToken !== claimToken) return false;
+    if (row.leaseExpiresAt <= Date.now()) return false;
+    row.leaseExpiresAt = Date.now() + leaseMs;
+    return true;
   }
 
-  async fail(provider: string, deliveryId: string, _failureCode: string) {
+  async complete(provider: string, deliveryId: string, claimToken: string) {
     const key = `${provider}:${deliveryId}`;
     const row = this.deliveries.get(key);
-    if (row) row.status = "failed";
+    if (row && row.claimToken === claimToken) row.status = "completed";
+  }
+
+  async fail(provider: string, deliveryId: string, claimToken: string, _failureCode: string) {
+    const key = `${provider}:${deliveryId}`;
+    const row = this.deliveries.get(key);
+    if (row && row.claimToken === claimToken) row.status = "failed";
   }
 }
 
@@ -65,6 +89,20 @@ describe("webhook signature verification", () => {
 });
 
 describe("webhook delivery identity and processing", () => {
+  it("enforces delivery uniqueness in the database schema", async () => {
+    const statements: string[] = [];
+    const queryRunner = {
+      query: async (sql: string) => {
+        statements.push(sql);
+        return [];
+      },
+    } as unknown as QueryRunner;
+
+    await new AddWebhookDeliveries1760000000016().up(queryRunner);
+
+    expect(statements.join("\n")).toContain('UNIQUE ("provider", "deliveryId")');
+  });
+
   it("extracts stable IDs from headers and provider payloads", () => {
     const headerReq = {
       header: (name: string) => (name === "x-delivery-id" ? "delivery-1" : undefined),
@@ -122,6 +160,42 @@ describe("webhook delivery identity and processing", () => {
 
     expect(a.outcome).not.toBe(b.outcome);
     expect(processor).toHaveBeenCalledTimes(1);
+  });
+
+  it("renews long-running claims so a duplicate cannot start after the initial lease", async () => {
+    const store = new MemoryWebhookStore();
+    const raw = Buffer.from('{"event":"long"}');
+    let finishProcessing!: () => void;
+    const processor = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finishProcessing = resolve;
+        })
+    );
+    registerWebhookProcessor("long-running", processor);
+
+    const first = processWebhookDelivery("long-running", "same-id", {}, raw, store, 60);
+    await new Promise((resolve) => setTimeout(resolve, 90));
+    const duplicate = await processWebhookDelivery("long-running", "same-id", {}, raw, store, 60);
+    finishProcessing();
+
+    expect((await first).outcome).toBe("processed");
+    expect(duplicate.outcome).toBe("duplicate");
+    expect(processor).toHaveBeenCalledTimes(1);
+  });
+
+  it("allows an expired processing claim to recover without letting the stale owner finish it", async () => {
+    const store = new MemoryWebhookStore();
+    const firstClaim = await store.claim("recover", "interrupted", "hash", 1);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const retryClaim = await store.claim("recover", "interrupted", "hash", 100);
+
+    expect(firstClaim.claimed).toBe(true);
+    expect(retryClaim.claimed).toBe(true);
+    expect(retryClaim.claimToken).not.toBe(firstClaim.claimToken);
+
+    await store.complete("recover", "interrupted", firstClaim.claimToken!);
+    expect(store.deliveries.get("recover:interrupted")?.status).toBe("processing");
   });
 
   it("hashes payloads without storing their sensitive contents", () => {
