@@ -1,11 +1,9 @@
 # Stardial Contractor Agreement Terms
 
 This document defines the baseline terms Stardial expects in contractor agreements.
-It covers quality standards, acceptance and sign-off, security obligations,
-subcontractor management, and confidentiality duration. Individual contracts may
-add stricter terms, but should not weaken the ones below.
-subcontractor management, and ongoing service levels. Individual contracts may add
-stricter terms, but should not weaken the ones below.
+It covers quality standards, acceptance and sign-off, payment, security obligations,
+subcontractor management, confidentiality duration, and ongoing service levels.
+Individual contracts may add stricter terms, but should not weaken the ones below.
 
 ## 1. Quality Standards
 
@@ -224,6 +222,50 @@ incident updates, and service-credit accrual continue throughout the cure period
 Service credits do not replace those breach rights or the existing liability
 limits. Disputes about measurements or credits follow the dispute process linked
 below; undisputed credits and service obligations remain due.
+
+## 6. Fees, Invoicing, and Payment
+
+The parties must sign a statement of work before work starts. It must state the
+payment currency and either:
+
+- for fixed-price work, the total fee and each milestone's amount, deliverables,
+  acceptance criteria, and invoice trigger; milestone amounts must add up to the
+  total fee; or
+- for time-and-materials work, each hourly or daily rate, the billing increment,
+  the applicable not-to-exceed budget, and who approves time records.
+
+The statement of work must also list any recurring service fee, billing cycle,
+and any approved reimbursable expenses. Rates and budgets include all costs other
+than taxes explicitly chargeable under section 2 of
+[`Contractor Terms: Scope, Compliance, Disputes, and Exit`](./contractor-terms-commercial-and-legal.md).
+No work or expense outside the signed statement of work is payable without a
+written change order approved by both parties.
+
+- Fixed-price milestone work may be invoiced when that milestone is accepted
+  under section 2. Time-and-materials work and recurring services are invoiced
+  monthly in arrears, within **5 business days** after month-end, with an
+  itemised statement of work completed and approved time records where
+  applicable.
+- A correct, undisputed invoice is due **30 calendar days** after Stardial
+  receives it. An invoice must identify the engagement and billing period,
+  describe the work or milestone, show the agreed rates and amounts, state any
+  applicable tax separately, and include the contractor's payment details and
+  required tax invoice.
+- Stardial must notify the contractor in writing of any disputed amount within
+  **10 business days** of receipt, explaining the reason. The parties will work
+  promptly to resolve it. Stardial pays the undisputed portion by the original
+  due date; a corrected invoice for an agreed adjustment is due **30 calendar
+  days** after receipt.
+- Interest accrues only on an overdue, undisputed amount, from the day after its
+  due date, at **1% per month simple interest** or the maximum rate permitted by
+  law, whichever is lower. The contractor may suspend work for an overdue,
+  undisputed amount only after giving **5 business days' written notice** and an
+  opportunity to pay; deadlines extend by the duration of a suspension caused by
+  non-payment.
+- Stardial pays in the statement-of-work currency, subject only to withholding
+  required by law. Any withholding and tax documentation are handled as stated
+  in section 2 of
+  [`Contractor Terms: Scope, Compliance, Disputes, and Exit`](./contractor-terms-commercial-and-legal.md).
 
 ## Questions
 
