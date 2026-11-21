@@ -1,11 +1,73 @@
 # Contractor Terms: Scope, Compliance, Disputes, and Exit
 
 This document sets the commercial and legal ground rules for contractor
-engagements: how scope and budget are controlled, what compliance applies to
+engagements: how scope is defined (deliverables, assumptions, boundaries,
+exclusions, and success), how budget and changes are controlled, what compliance applies to
 international work, how disagreements are resolved, what happens at the end, and
 whether the engagement may be transferred. It supplements the statement of work.
 
 ## 1. Scope, Budget, and Change Control
+
+### 1.1 Defining the scope
+
+Every statement of work must contain the sections below, written in plain
+language. Work does not start until both parties have agreed them in writing.
+Anything left blank or marked "to be decided" is out of scope until a change
+request adds it.
+
+| Section             | What it must say                                                                                                                               |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Objective           | One or two sentences on the problem being solved and who benefits                                                                              |
+| Deliverables        | A numbered list of each item to be handed over (code, document, design, deployment, or report), with its format and where it will be delivered |
+| Acceptance criteria | For each deliverable, the checks that show it is done, in addition to the quality standards in the contractor agreement                        |
+| In scope            | The features, systems, environments, platforms, and repositories the work covers                                                               |
+| Out of scope        | Related work the contractor will not do (see the default exclusions below)                                                                     |
+| Assumptions         | Facts the plan depends on, such as access, inputs, third-party availability, and decision turnaround                                           |
+| Dependencies        | What Stardial or others must supply, and by when                                                                                               |
+| Milestones          | Target dates for each deliverable and the budget attached to each                                                                              |
+
+Write acceptance criteria so that a reviewer can answer "yes" or "no". For
+example, "users can export a split history as CSV from the dashboard, and the
+export matches the on-chain records for the test account" is testable; "a good
+export feature" is not.
+
+### 1.2 Default exclusions
+
+Unless the statement of work lists them as deliverables, the following are out
+of scope:
+
+- New features, screens, endpoints, or contract functions not named in the
+  deliverables list.
+- Ongoing operation, hosting, monitoring, or support after acceptance. Ongoing
+  service levels apply only where the statement of work includes them.
+- Fixing defects in code, infrastructure, or third-party services that the
+  contractor did not write or change.
+- Data migration, content entry, translation, and user training.
+- Security audits, penetration tests, or formal verification by a third party.
+- Paid third-party licences, hosting, or API usage beyond what Stardial provides.
+- Rework caused by Stardial changing requirements after acceptance criteria are
+  agreed. This is handled as a change request.
+
+### 1.3 Assumptions and boundaries
+
+- If an assumption in the statement of work turns out to be false, the party who
+  finds out tells the other in writing within **2 business days**. The parties
+  then agree a change request or confirm that the impact is absorbed.
+- Ambiguous scope is not read as including extra work. When the contractor is
+  unsure whether something is in scope, they ask in writing before doing it.
+  Work done without that confirmation is not payable as extra work.
+- Small clarifications that do not change effort, cost, or dates, such as
+  wording, naming, or layout choices inside an agreed deliverable, can be agreed
+  in the pull request or issue without a change request.
+
+### 1.4 Definition of success
+
+The engagement is successful when every deliverable in the statement of work has
+been accepted under the sign-off process in the contractor agreement, and any
+milestone budget has not been exceeded without an approved change request. Work
+that is not in the deliverables list does not count toward or against success.
+
+### 1.5 Budget and change control
 
 - The statement of work lists the deliverables and a **not-to-exceed budget**.
   Work outside that list is out of scope.
