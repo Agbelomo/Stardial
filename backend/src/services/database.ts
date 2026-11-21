@@ -12,6 +12,7 @@ import { ProjectArchival } from "../entities/ProjectArchival.js";
 import { NotificationPreference } from "../entities/NotificationPreference.js";
 import { Notification } from "../entities/Notification.js";
 import { ProjectEditHistory } from "../entities/ProjectEditHistory.js";
+import { WebhookDelivery } from "../entities/WebhookDelivery.js";
 import { logger } from "./logger.js";
 
 /** Every entity the app persists. A file in src/entities missing here is a schema convention violation. */
@@ -27,6 +28,7 @@ export const ENTITIES = [
   NotificationPreference,
   Notification,
   ProjectEditHistory,
+  WebhookDelivery,
 ];
 
 let AppDataSource: DataSource | null = null;
@@ -49,7 +51,9 @@ export function createDataSource(): DataSource {
 
   const poolMax = env.DATABASE_POOL_MAX ? Number(env.DATABASE_POOL_MAX) : 10;
   const poolIdleMs = env.DATABASE_POOL_IDLE_MS ? Number(env.DATABASE_POOL_IDLE_MS) : 30000;
-  const poolConnTimeoutMs = env.DATABASE_POOL_CONN_TIMEOUT_MS ? Number(env.DATABASE_POOL_CONN_TIMEOUT_MS) : 2000;
+  const poolConnTimeoutMs = env.DATABASE_POOL_CONN_TIMEOUT_MS
+    ? Number(env.DATABASE_POOL_CONN_TIMEOUT_MS)
+    : 2000;
 
   return new DataSource({
     type: "postgres",
@@ -67,6 +71,7 @@ export function createDataSource(): DataSource {
       NotificationPreference,
       Notification,
       ProjectEditHistory,
+      WebhookDelivery,
       EmailVerificationToken,
     ],
     migrations: ["src/migrations/*.ts"],
@@ -102,7 +107,6 @@ export async function initDatabase(): Promise<DataSource> {
   return initializationPromise;
 }
 
-
 export function setDataSourceForTests(dataSource: DataSource | null): void {
   if (process.env.NODE_ENV !== "test") {
     throw new Error("setDataSourceForTests is only available in test mode.");
@@ -134,7 +138,10 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function rollbackPreservingError(queryRunner: QueryRunner, originalError: unknown): Promise<void> {
+async function rollbackPreservingError(
+  queryRunner: QueryRunner,
+  originalError: unknown
+): Promise<void> {
   try {
     await queryRunner.rollbackTransaction();
   } catch (rollbackError) {
@@ -198,7 +205,10 @@ export async function withTransaction<T>(
 
       if (isDeadlockError(error) && attempt < DEADLOCK_MAX_RETRIES - 1) {
         attempt++;
-        logger.warn("Deadlock detected, retrying transaction", { attempt, maxRetries: DEADLOCK_MAX_RETRIES });
+        logger.warn("Deadlock detected, retrying transaction", {
+          attempt,
+          maxRetries: DEADLOCK_MAX_RETRIES,
+        });
         await sleep(DEADLOCK_RETRY_DELAY_MS * attempt);
       } else {
         throw error;
@@ -220,7 +230,11 @@ export async function withTransaction<T>(
  */
 export async function closeDatabase(): Promise<void> {
   if (initializationPromise && !AppDataSource?.isInitialized) {
-    try { await initializationPromise; } catch { /* ignore */ }
+    try {
+      await initializationPromise;
+    } catch {
+      /* ignore */
+    }
   }
   const dataSource = AppDataSource;
   AppDataSource = null;
