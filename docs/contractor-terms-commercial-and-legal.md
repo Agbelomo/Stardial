@@ -81,6 +81,100 @@ that is not in the deliverables list does not count toward or against success.
 - Once the not-to-exceed budget is reached, the contractor stops unless a new
   change request is approved. Unapproved overruns are not payable.
 
+## 1A. Invoicing and Payment
+
+This section sets what an invoice must contain, how Stardial approves it, when it
+is due, and what happens when payment is late. It applies to every invoice under
+a statement of work. Billing contacts, currency, and any recurring fees are named
+in the statement of work.
+
+### Invoice content
+
+Each invoice is a written document (PDF or email) and must show:
+
+1. A unique **invoice number** and the **issue date**.
+2. The contractor's legal name, address, and tax registration details, and the
+   Stardial billing entity named in the statement of work.
+3. The **statement of work reference** and, where relevant, the milestone or
+   deliverable and any approved change request the invoice covers.
+4. **Evidence of acceptance** for each deliverable billed: a link to the recorded
+   sign-off (a GitHub approval or an email confirming acceptance), or the date on
+   which deemed acceptance took effect under
+   [Review, Acceptance, and Sign-Off](./contractor-agreement.md#2-review-acceptance-and-sign-off).
+5. **Itemised charges**: a description, the quantity or hours, the rate, and the
+   amount for each line, in the currency stated in the statement of work.
+6. **Budget position**: this invoice's total, the total invoiced to date, and the
+   remaining not-to-exceed balance from section 1.
+7. **Taxes and withholding** shown separately from fees (see section 2), and any
+   service credits applied as separate deduction lines.
+8. **Payment details**: the account or address to pay, a payment reference, and
+   the due date calculated under "Due dates" below.
+
+### What may be invoiced
+
+- Work accepted under the acceptance process, including work deemed accepted.
+- Work under a change request approved in writing by both parties.
+- Recurring fees that the statement of work makes payable.
+- Not payable: work that has not been accepted, work outside the statement of
+  work and approved change requests, and any amount that takes total invoiced
+  fees above the not-to-exceed budget (see section 1).
+
+### Submission and approval
+
+1. **Submit.** The contractor emails the invoice to the billing contact named in
+   the statement of work (or, if none is named, the nominated contract contact).
+   It is received on the day it reaches that contact; one received after the end
+   of a business day, or on a non-business day, counts as received on the next
+   business day.
+2. **Completeness check.** Within **5 business days** of receipt, Stardial
+   confirms the invoice is complete or returns it with a written list of the
+   missing or incorrect items. A returned invoice is treated as not received
+   until the contractor delivers a corrected one.
+3. **Review.** Within **10 business days** of receiving a complete invoice,
+   Stardial checks it against accepted deliverables, approved change requests,
+   the budget, and credits owed, then either approves it in writing or notifies
+   the contractor of the items it disputes, with reasons.
+4. **Deemed approval.** If Stardial neither approves nor disputes the invoice
+   within those **10 business days**, the invoice is treated as approved.
+5. **Partial disputes.** Stardial approves and pays the undisputed part on time.
+   The disputed part follows the process in section 3, and the contractor issues
+   a corrected invoice or credit note once it is resolved.
+6. **Later corrections.** Approving or paying an invoice does not accept a
+   deliverable or waive any right. An overpayment or billing error found later is
+   corrected by a credit note or a deduction from the next invoice; if no further
+   invoice is due, the contractor refunds it within **30 calendar days**.
+
+### Due dates
+
+- Payment is due **30 calendar days** after Stardial receives a complete, correct
+  invoice. Approval, including deemed approval, does not change the due date.
+- If the due date is not a business day, payment is due on the next business
+  day.
+- Payment is made when Stardial initiates the transfer to the account on the
+  invoice, in the invoice currency. Each party bears its own bank charges.
+- Taxes and withholding follow section 2.
+- A disputed amount later agreed or decided to be payable is due within **10
+  business days** after the dispute is resolved.
+
+### Late payment
+
+- An undisputed amount unpaid after its due date accrues simple interest at
+  **1% per month** (or the maximum rate applicable law permits, if lower),
+  calculated daily from the day after the due date until it is paid. Interest is
+  not compounded.
+- No interest accrues on an amount disputed in good faith under section 3 while
+  the dispute is pending. If it is resolved as payable and not paid within **10
+  business days**, interest accrues on it from the end of that period.
+- The contractor claims interest with a statement showing the overdue invoice,
+  the number of days late, and the calculation. Stardial pays it with the overdue
+  amount, or within **10 business days** of the statement if the amount has
+  already been paid.
+- An undisputed amount that is still unpaid after the contractor gives written
+  notice that it is overdue is handled under
+  [Breach Notification and Cure](./contractor-terms-breach-and-exit.md#2-breach-notification-and-cure),
+  including its **10-business-day** cure period. Interest does not limit the
+  contractor's rights under that process.
+
 ## 2. International Work and Legal Compliance
 
 - Each party follows the laws that apply where it is established. The contractor
@@ -95,8 +189,15 @@ that is not in the deliverables list does not count toward or against success.
   qualify before work starts.
 - Stardial data stays in the systems Stardial designates. The contractor must
   not move it to another country or provider without written approval.
-- Fees are exclusive of taxes; each party pays its own taxes. Where withholding
-  applies, the paying party may withhold and will provide the receipt.
+- Fees and rates in the statement of work are exclusive of VAT or other
+  transaction taxes. The contractor is responsible for its income, payroll, and
+  employment taxes and registrations. Where a transaction tax applies, the
+  contractor must state it separately on a valid tax invoice, and Stardial pays
+  it with the undisputed invoice.
+- The paying party may deduct and remit any withholding tax required by law and
+  must provide the official remittance evidence to the other party within
+  **10 business days** of receiving it. The parties will provide reasonable
+  documentation needed to apply the correct tax treatment.
 - If a local law conflicts with these terms, notify Stardial and the parties will
   agree a workaround in writing before proceeding.
 
@@ -159,7 +260,12 @@ misappropriation is permitted at any stage.
 - Payment for accepted work remains due after exit; prepaid but undelivered work
   is refunded.
 
-## 5. Assignment
+## 5. Non-Solicitation
+
+- During the engagement and for **12 months** after its termination or expiry for any reason, the contractor shall not, directly or indirectly, solicit, entice away, employ, engage, or contract with any employee, contractor, or commercial partner of Stardial who was involved in or known to the contractor through the engagement, or encourage any such person to leave or terminate their relationship with Stardial.
+- General public advertisements or job postings not specifically targeted at Stardial personnel are exempt from this restriction.
+
+## 6. Assignment
 
 - Neither party may assign or transfer this engagement, in whole or in part,
   without the other party's prior written consent. An assignment made without
