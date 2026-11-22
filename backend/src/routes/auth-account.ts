@@ -23,7 +23,7 @@ export const authAccountRouter = Router();
 
 const refreshTokenSchema = z.object({
   refreshToken: z.string().min(1),
-});
+}).strict();
 
 /**
  * Exchanges a valid refresh token for a new access/refresh pair.
@@ -70,11 +70,11 @@ authAccountRouter.post("/refresh", async (req: Request, res: Response, next: Nex
 
 const emailChangeRequestSchema = z.object({
   newEmail: z.string().trim().email("Invalid email format").max(128),
-});
+}).strict();
 
 const emailChangeConfirmSchema = z.object({
   token: z.string().min(1),
-});
+}).strict();
 
 function normalizeEmail(email: string | null | undefined): string {
   return (email ?? "").trim().toLowerCase();

@@ -38,6 +38,9 @@ function mockResponse() {
     locals: {} as Record<string, unknown>,
     statusCode: 0,
     body: null as unknown,
+    setHeader() {
+      return this;
+    },
     status(code: number) {
       this.statusCode = code;
       return this;

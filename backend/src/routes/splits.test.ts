@@ -91,6 +91,44 @@ const createApp = () => {
   return app;
 };
 
+/**
+ * These routes read expiration/history state and derived payout statuses from
+ * Postgres. Without a data source every route that touches them fails with
+ * "Database not initialized", so install an in-memory one for the suite.
+ * Individual tests override it when they assert on specific writes.
+ */
+function installTestDataSource() {
+  const historyRepository = {
+    find: vi.fn().mockResolvedValue([]),
+    findOne: vi.fn().mockResolvedValue(null),
+    create: vi.fn((entry: unknown) => entry),
+    save: vi.fn(async (entry: unknown) => entry),
+  };
+  const queryBuilder = {
+    andWhere: vi.fn().mockReturnThis(),
+    orderBy: vi.fn().mockReturnThis(),
+    addOrderBy: vi.fn().mockReturnThis(),
+    skip: vi.fn().mockReturnThis(),
+    take: vi.fn().mockReturnThis(),
+    getMany: vi.fn().mockResolvedValue([]),
+    getManyAndCount: vi.fn().mockResolvedValue([[], 0]),
+    getCount: vi.fn().mockResolvedValue(0),
+  };
+
+  setDataSourceForTests({
+    isInitialized: true,
+    getRepository: (entity: { name?: string }) => {
+      if (entity?.name === "User") {
+        return { findOne: vi.fn().mockResolvedValue(null) };
+      }
+      if (entity?.name === "TransactionRecord") {
+        return { createQueryBuilder: vi.fn(() => queryBuilder) };
+      }
+      return historyRepository;
+    },
+  } as unknown as DataSource);
+}
+
 beforeAll(() => {
   process.env.HORIZON_URL = "https://horizon.test";
   process.env.SOROBAN_RPC_URL = "https://soroban.test";
@@ -102,6 +140,91 @@ beforeAll(() => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Set up a minimal database mock so routes that touch the DB don't fail.
+  setDataSourceForTests({
+    isInitialized: true,
+    getRepository: () => ({
+      findOne: vi.fn().mockResolvedValue(null),
+      find: vi.fn().mockResolvedValue([]),
+      create: vi.fn((entry: unknown) => entry),
+      save: vi.fn(async (entry: unknown) => entry),
+    }),
+  } as unknown as DataSource);
+});
+
+beforeAll(() => {
+  // Default mocks that can be overridden by individual tests
+  getAccountMock.mockResolvedValue({ accountId: "GTESTSIMULATOR" });
+  prepareTransactionMock.mockResolvedValue({
+    toXDR: () => "MOCKED_XDR",
+    sequence: "1",
+    fee: "100",
+  });
+  // Default mock: return a coherent retval for every read-only contract
+  // method the routes in this suite call, so a test that forgets to override
+  // the mock gets a shape that passes readSimulationRetval instead of a 502.
+  simulateTransactionMock.mockImplementation(async (tx: { preparedOperation?: { method: string } }) => {
+    const method = tx.preparedOperation?.method;
+    if (method === "get_project") {
+      return { result: { retval: { locked: false, owner: "GOWNER", collaborators: [] } } };
+    }
+    if (method === "get_balance") {
+      return { result: { retval: 123 } };
+    }
+    if (method === "is_distributions_paused") {
+      return { result: { retval: false } };
+    }
+    if (method === "get_admin") {
+      return { result: { retval: "GADMIN" } };
+    }
+    if (method === "get_allowed_token_count") {
+      return { result: { retval: 0 } };
+    }
+    if (method === "get_allowed_tokens") {
+      return { result: { retval: [] } };
+    }
+    if (method === "project_exists") {
+      return { result: { retval: false } };
+    }
+    if (method === "list_projects") {
+      return { result: { retval: [] } };
+    }
+    if (method === "get_project_count") {
+      return { result: { retval: 0 } };
+    }
+    // Anything else still returns undefined so a genuinely unexpected call
+    // fails loudly rather than silently producing the wrong shape.
+    return { result: { retval: undefined } };
+  installTestDataSource();
+  // The read cache is module state shared by every test in this file; a stale
+  // list page would otherwise answer a request without consuming its mock.
+  invalidateCacheByPrefix("list_projects:");
+
+  // Default contract-read responses. Routes read project state and balances
+  // before building XDR; returning a shaped retval per method keeps those
+  // reads decodable. Tests override this when they assert specific reads.
+  simulateTransactionMock.mockImplementation(async (transaction: unknown) => {
+    const method = (transaction as { preparedOperation?: { method?: string } })
+      .preparedOperation?.method;
+    switch (method) {
+      case "project_exists":
+      case "is_distributions_paused":
+        return { result: { retval: false } };
+      case "get_project":
+        return {
+          result: {
+            retval: { owner: "GOWNER", token: "GTOKEN", locked: false, collaborators: [] },
+          },
+        };
+      case "get_balance":
+      case "get_unallocated_balance":
+        return { result: { retval: 0n } };
+      case "get_project_count":
+        return { result: { retval: 0 } };
+      default:
+        return { result: { retval: 0n } };
+    }
+  });
 });
 
 describe("splits routes integration", () => {
@@ -289,6 +412,12 @@ describe("splits routes integration", () => {
       sequence: "789",
       fee: "100",
     });
+    simulateTransactionMock.mockImplementation(async (tx: { preparedOperation?: { method: string } }) => {
+      if (tx.preparedOperation?.method === "is_distributions_paused") {
+        return { result: { retval: false } };
+      }
+      return { result: { retval: undefined } };
+    });
 
     const app = createApp();
 
@@ -309,11 +438,45 @@ describe("splits routes integration", () => {
   });
 
   it("lists split projects with offset pagination", async () => {
+    invalidateCacheByPrefix("list_projects:");
     getAccountMock.mockResolvedValue({ accountId: "GSIM" });
+    simulateTransactionMock.mockImplementation(async (tx: { preparedOperation?: { method: string } }) => {
+      if (tx.preparedOperation?.method === "list_projects") {
+        return { result: { retval: [{ projectId: "project_1" }, { projectId: "project_2" }] } };
+      }
+      if (tx.preparedOperation?.method === "get_project_count") {
+        return { result: { retval: 5 } };
+      }
+      return { result: { retval: undefined } };
+    });
     simulateTransactionMock
       .mockResolvedValueOnce({
         result: {
-          retval: [{ projectId: "project_1" }, { projectId: "project_2" }],
+          retval: [
+            {
+              project_id: "project_1",
+              title: "Project 1",
+              project_type: "music",
+              owner: "GOWNER",
+              token: "GTOKEN",
+              locked: false,
+              total_distributed: 0n,
+              distribution_round: 0,
+              // Large nested objects must not appear in the list payload.
+              collaborators: [{ address: "GCOLLAB", alias: "A", basis_points: 10_000 }],
+            },
+            {
+              project_id: "project_2",
+              title: "Project 2",
+              project_type: "film",
+              owner: "GOWNER",
+              token: "GTOKEN",
+              locked: false,
+              total_distributed: 100n,
+              distribution_round: 1,
+              collaborators: [{ address: "GCOLLAB", alias: "B", basis_points: 10_000 }],
+            },
+          ],
         },
       })
       .mockResolvedValueOnce({
@@ -325,22 +488,51 @@ describe("splits routes integration", () => {
     const response = await request(app).get("/splits?start=0&limit=10").expect(200);
 
     expect(response.body).toMatchObject({
-      projects: [{ projectId: "project_1" }, { projectId: "project_2" }],
+      projects: [
+        {
+          projectId: "project_1",
+          title: "Project 1",
+          projectType: "music",
+          totalDistributed: "0",
+          distributionRound: 0,
+        },
+        {
+          projectId: "project_2",
+          title: "Project 2",
+          totalDistributed: "100",
+          distributionRound: 1,
+        },
+      ],
       total: 5,
       start: 0,
       limit: 10,
       hasMore: true,
     });
+    expect(response.body.projects[0]).not.toHaveProperty("collaborators");
+    expect(response.body.projects[0]).not.toHaveProperty("project_id");
 
     expect(getAccountMock).toHaveBeenCalledWith("GTESTSIMULATOR");
   });
 
   it("lists split projects with cursor pagination", async () => {
+    invalidateCacheByPrefix("list_projects:");
     getAccountMock.mockResolvedValue({ accountId: "GSIM" });
+    simulateTransactionMock.mockImplementation(async (tx: { preparedOperation?: { method: string } }) => {
+      if (tx.preparedOperation?.method === "list_projects") {
+        return { result: { retval: [{ projectId: "project_3" }, { projectId: "project_4" }] } };
+      }
+      if (tx.preparedOperation?.method === "get_project_count") {
+        return { result: { retval: 5 } };
+      }
+      return { result: { retval: undefined } };
+    });
     simulateTransactionMock
       .mockResolvedValueOnce({
         result: {
-          retval: [{ projectId: "project_3" }, { projectId: "project_4" }],
+          retval: [
+            { project_id: "project_3", title: "Project 3" },
+            { project_id: "project_4", title: "Project 4" },
+          ],
         },
       })
       .mockResolvedValueOnce({
@@ -354,6 +546,11 @@ describe("splits routes integration", () => {
 
     expect(response.body).toMatchObject({
       projects: [{ projectId: "project_3" }, { projectId: "project_4" }],
+      total: 5,
+      projects: [
+        { projectId: "project_3", title: "Project 3" },
+        { projectId: "project_4", title: "Project 4" },
+      ],
       total: 10,
       start: 2,
       limit: 2,
@@ -363,16 +560,17 @@ describe("splits routes integration", () => {
   });
 
   it("cursor pagination returns null nextCursor on last page", async () => {
+    invalidateCacheByPrefix("list_projects:");
     getAccountMock.mockResolvedValue({ accountId: "GSIM" });
-    simulateTransactionMock
-      .mockResolvedValueOnce({
-        result: {
-          retval: [{ projectId: "project_9" }],
-        },
-      })
-      .mockResolvedValueOnce({
-        result: { retval: 10 },
-      });
+    simulateTransactionMock.mockImplementation(async (tx: { preparedOperation?: { method: string } }) => {
+      if (tx.preparedOperation?.method === "list_projects") {
+        return { result: { retval: [{ projectId: "project_9" }] } };
+      }
+      if (tx.preparedOperation?.method === "get_project_count") {
+        return { result: { retval: 10 } };
+      }
+      return { result: { retval: undefined } };
+    });
 
     const app = createApp();
 
@@ -397,11 +595,27 @@ describe("splits routes integration", () => {
   });
 
   it("fetches a project by id", async () => {
+    invalidateCacheByPrefix("project:");
     getAccountMock.mockResolvedValue({ accountId: "GSIM" });
     simulateTransactionMock
       .mockResolvedValueOnce({
         result: {
-          retval: { projectId: "project_1", title: "Project 1" },
+          retval: { locked: false, owner: "GOWNER", projectId: "project_1", title: "Project 1" },
+          retval: {
+            project_id: "project_1",
+            title: "Project 1",
+            project_type: "music",
+            owner: "GOWNER",
+            token: "GTOKEN",
+            locked: false,
+            total_distributed: 0n,
+            distribution_round: 0,
+            collaborators: [
+              { address: "GCOLLAB", alias: "Producer", basis_points: 10_000 },
+            ],
+            // Internal metadata a raw passthrough would have published.
+            storage_key: "internal/ledger/project_1",
+          },
         },
       })
       .mockResolvedValueOnce({
@@ -414,32 +628,40 @@ describe("splits routes integration", () => {
 
     const response = await request(app).get("/splits/project_1").expect(200);
 
-    expect(response.body).toEqual({
+    expect(response.body).toMatchObject({
       projectId: "project_1",
       title: "Project 1",
+      projectType: "music",
+      owner: "GOWNER",
+      token: "GTOKEN",
+      locked: false,
+      totalDistributed: "0",
+      distributionRound: 0,
       balance: "123",
+      collaborators: [
+        { address: "GCOLLAB", alias: "Producer", basisPoints: 10_000 },
+      ],
     });
+    expect(response.body).not.toHaveProperty("project_id");
+    expect(response.body).not.toHaveProperty("storage_key");
+    expect(response.body.collaborators[0]).not.toHaveProperty("basis_points");
     expect(getAccountMock).toHaveBeenCalledWith("GTESTSIMULATOR");
   });
 
   it("reads admin allowlist state", async () => {
     getAccountMock.mockResolvedValue({ accountId: "GSIM" });
-    simulateTransactionMock
-      .mockResolvedValueOnce({
-        result: {
-          retval: "GADMIN",
-        },
-      })
-      .mockResolvedValueOnce({
-        result: {
-          retval: 2,
-        },
-      })
-      .mockResolvedValueOnce({
-        result: {
-          retval: ["GTOKEN_1", "GTOKEN_2"],
-        },
-      });
+    simulateTransactionMock.mockImplementation(async (tx: { preparedOperation: { method: string } }) => {
+      switch (tx.preparedOperation.method) {
+        case "get_admin":
+          return { result: { retval: "GADMIN" } };
+        case "get_allowed_token_count":
+          return { result: { retval: 2 } };
+        case "get_allowed_tokens":
+          return { result: { retval: ["GTOKEN_1", "GTOKEN_2"] } };
+        default:
+          return { result: { retval: undefined } };
+      }
+    });
 
     const app = createApp();
 
@@ -676,8 +898,27 @@ describe("splits routes integration", () => {
  */
 function mockOnChainProjectOwner(owner: string) {
   invalidateCacheByPrefix("project:");
-  simulateTransactionMock.mockResolvedValue({
-    result: { retval: { owner, locked: false, collaborators: [] } },
+  simulateTransactionMock.mockImplementation(async (tx: { preparedOperation?: { method: string } }) => {
+    const method = tx.preparedOperation?.method;
+    if (method === "get_project") {
+      return { result: { retval: { locked: false, owner, collaborators: [] } } };
+    }
+    if (method === "get_balance") {
+      return { result: { retval: 123 } };
+    }
+    if (method === "project_exists") {
+      return { result: { retval: false } };
+    }
+    // Default fallback for other methods
+    return { result: { retval: undefined } };
+  simulateTransactionMock.mockImplementation(async (transaction: unknown) => {
+    const method = (transaction as { preparedOperation?: { method?: string } })
+      .preparedOperation?.method;
+    if (method === "get_balance") return { result: { retval: 0n } };
+    if (method === "get_project") {
+      return { result: { retval: { owner, locked: false, collaborators: [] } } };
+    }
+    return { result: { retval: false } };
   });
 }
 
@@ -973,7 +1214,14 @@ describe("Issue #1092: project ownership validation on owner-gated mutations", (
 
     it(`${mutation.name} returns 404 when the project does not exist`, async () => {
       invalidateCacheByPrefix("project:");
-      simulateTransactionMock.mockResolvedValue({ result: undefined });
+      simulateTransactionMock.mockImplementation(async (tx: { preparedOperation?: { method: string } }) => {
+        if (tx.preparedOperation?.method === "get_project") {
+          return { error: "HostError: project not found" };
+        }
+        return { result: { retval: undefined } };
+      });
+      // An on-chain error means the read produced no project state.
+      simulateTransactionMock.mockResolvedValue({ error: "project not found" });
 
       const response = await mutation.send(createApp(), OWNER).expect(404);
 
@@ -989,8 +1237,25 @@ describe("Issue #1092: project ownership validation on owner-gated mutations", (
     await request(app).get("/splits/proj_own").expect(200);
 
     // Ownership transferred on-chain; the cache still says OWNER.
-    simulateTransactionMock.mockResolvedValue({
-      result: { retval: { owner: INTRUDER, locked: false, collaborators: [] } },
+    // Any other contract call in this test still needs a valid retval, so
+    // keep the fallback gated on the prepared operation method.
+    simulateTransactionMock.mockImplementation(async (tx: { preparedOperation?: { method: string } }) => {
+      const method = tx.preparedOperation?.method;
+      if (method === "get_project") {
+        return { result: { retval: { locked: false, owner: INTRUDER, collaborators: [] } } };
+      }
+      if (method === "get_balance") {
+        return { result: { retval: 123 } };
+      }
+      return { result: { retval: undefined } };
+    simulateTransactionMock.mockImplementation(async (transaction: unknown) => {
+      const method = (transaction as { preparedOperation?: { method?: string } })
+        .preparedOperation?.method;
+      if (method === "get_balance") return { result: { retval: 0n } };
+      if (method === "get_project") {
+        return { result: { retval: { owner: INTRUDER, locked: false, collaborators: [] } } };
+      }
+      return { result: { retval: false } };
     });
 
     const response = await request(app)
@@ -1003,8 +1268,27 @@ describe("Issue #1092: project ownership validation on owner-gated mutations", (
 
   it("does not gate permissionless actions (deposit sender is not required to be the owner)", async () => {
     invalidateCacheByPrefix("project:");
-    simulateTransactionMock.mockResolvedValue({
-      result: { retval: { owner: OWNER, token: "GTOKEN", locked: false, collaborators: [] } },
+    simulateTransactionMock.mockImplementation(async (tx: { preparedOperation?: { method: string } }) => {
+      const method = tx.preparedOperation?.method;
+      if (method === "get_project") {
+        return { result: { retval: { locked: false, owner: OWNER, token: "GTOKEN", collaborators: [] } } };
+      }
+      if (method === "get_balance") {
+        return { result: { retval: 123 } };
+      }
+      return { result: { retval: undefined } };
+    simulateTransactionMock.mockImplementation(async (transaction: unknown) => {
+      const method = (transaction as { preparedOperation?: { method?: string } })
+        .preparedOperation?.method;
+      if (method === "get_balance") return { result: { retval: 0n } };
+      if (method === "get_project") {
+        return {
+          result: {
+            retval: { owner: OWNER, token: "GTOKEN", locked: false, collaborators: [] },
+          },
+        };
+      }
+      return { result: { retval: false } };
     });
 
     await request(createApp())
@@ -1102,7 +1386,7 @@ describe("unallocated token recovery routes", () => {
   it("POST /splits/admin/withdraw-unallocated builds unsigned XDR with audit context", async () => {
     getAccountMock.mockResolvedValue({ accountId: VALID_ADMIN });
     prepareTransactionMock.mockResolvedValue({
-      toXDR: () => "XDR_WITHDRAW_UNALLOCATED",
+      toXDR: () => "XDR_CREATE",
       sequence: "999",
       fee: "100",
     });
@@ -1118,7 +1402,7 @@ describe("unallocated token recovery routes", () => {
       })
       .expect(200);
 
-    expect(res.body.xdr).toBe("XDR_WITHDRAW_UNALLOCATED");
+    expect(res.body.xdr).toBe("XDR_CREATE");
     expect(res.body.metadata.operation).toBe("withdraw_unallocated");
     expect(res.body.metadata.auditContext).toMatchObject({
       token: VALID_TOKEN,
@@ -1255,6 +1539,7 @@ describe("POST /splits idempotency (Issue #888)", () => {
       sequence: "1",
       fee: "100",
     });
+    simulateTransactionMock.mockResolvedValue({ result: { retval: false } });
   };
 
   it("first request with an Idempotency-Key succeeds and executes normally", async () => {
@@ -1283,6 +1568,8 @@ describe("POST /splits idempotency (Issue #888)", () => {
       .send(payload)
       .expect(200);
 
+    const accountCallsAfterFirst = getAccountMock.mock.calls.length;
+
     const second = await request(app)
       .post("/splits")
       .set("Idempotency-Key", "replay-key")
@@ -1293,7 +1580,13 @@ describe("POST /splits idempotency (Issue #888)", () => {
     expect(second.headers["idempotency-replayed"]).toBe("true");
     // The underlying build only ran once; the replay was served from the store.
     expect(prepareTransactionMock).toHaveBeenCalledTimes(1);
-    expect(getAccountMock).toHaveBeenCalledTimes(1);
+    // The create route calls getAccount twice for the first request: once for
+    // the simulator account (inside simulateReadOnlyContractCall) and once for
+    // the owner. The second request is served from the idempotency cache.
+    expect(getAccountMock).toHaveBeenCalledTimes(2);
+    expect(getAccountMock).toHaveBeenNthCalledWith(1, "GTESTSIMULATOR");
+    expect(getAccountMock).toHaveBeenNthCalledWith(2, VALID_OWNER);
+    expect(getAccountMock.mock.calls.length).toBe(accountCallsAfterFirst);
   });
 
   it("rejects a replay with the same key but a different payload with a stable 409 conflict", async () => {

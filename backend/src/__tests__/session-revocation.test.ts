@@ -55,6 +55,43 @@ vi.mock("../services/database.js", () => ({
         users.find((u) => u.email === where.email) ?? null,
     }),
   }),
+  // Mirrors the conditional UPDATE in /auth/password-reset/confirm: only rows
+  // whose sessionVersion still equals the token's `sv` are bumped.
+  withTransaction: async (
+    callback: (runner: {
+      manager: { getRepository: () => { createQueryBuilder: () => unknown } };
+    }) => Promise<unknown>,
+  ) =>
+    callback({
+      manager: {
+        getRepository: () => ({
+          createQueryBuilder: () => {
+            let email = "";
+            let sessionVersion = 0;
+            const builder = {
+              update: () => builder,
+              set: () => builder,
+              where: (sql: string, params: { email: string; sv: number }) => {
+                void sql;
+                email = params.email;
+                sessionVersion = params.sv;
+                return builder;
+              },
+              execute: async () => {
+                const matches = users.filter(
+                  (u) => u.email === email && u.sessionVersion === sessionVersion,
+                );
+                matches.forEach((u) => {
+                  u.sessionVersion += 1;
+                });
+                return { affected: matches.length };
+              },
+            };
+            return builder;
+          },
+        }),
+      },
+    }),
 }));
 
 vi.mock("../services/email-provider.js", async () => {

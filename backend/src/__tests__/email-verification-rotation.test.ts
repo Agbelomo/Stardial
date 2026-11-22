@@ -180,11 +180,20 @@ describe("verification token rotation (#1444)", () => {
     expect(updateMock).toHaveBeenCalledTimes(1);
   });
 
-  it("verifies the email inside the token, ignoring a body-supplied address", async () => {
+  it("verifies the email inside the token, rejecting a body-supplied address", async () => {
     const app = createApp();
     const token = await issueToken(app);
 
-    await confirm(app, token, { email: OTHER_EMAIL }).expect(200);
+    // The confirmation endpoint reads the address from the token, not the
+    // request body, which has no `email` field — so the body is refused for
+    // not matching the contract before any work happens.
+    const spoofed = await request(app)
+      .post("/auth/email-verification/confirm")
+      .send({ token, email: OTHER_EMAIL });
+    expect(spoofed.status).toBe(400);
+    expect(updateMock).not.toHaveBeenCalled();
+
+    await confirm(app, token).expect(200);
 
     const [criteria] = updateMock.mock.calls[0];
     expect(criteria.email).toBe(EMAIL);

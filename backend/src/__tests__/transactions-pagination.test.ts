@@ -85,6 +85,19 @@ vi.mock("../services/database.js", () => ({
   closeDatabase: async () => {},
 }));
 
+// These tests exercise pagination, not authentication: present an
+// authenticated wallet so the route reaches the query builder.
+vi.mock("../middleware/auth-jwt.js", () => ({
+  authJwtMiddleware: (
+    req: { user?: { walletAddress: string } },
+    _res: unknown,
+    next: () => void,
+  ) => {
+    req.user = { walletAddress: "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF" };
+    next();
+  },
+}));
+
 import { transactionsRouter } from "../routes/transactions.js";
 import { createPayoutHistoryService } from "../services/PayoutHistoryService.js";
 import { errorHandler, notFoundHandler } from "../middleware/error.js";
@@ -151,8 +164,13 @@ describe("GET /transactions/history cursor pagination", () => {
     );
 
     const [countBuilder, pageBuilder] = h.builders;
-    expect(countBuilder.conditions).toHaveLength(0);
-    expect(pageBuilder.conditions).toHaveLength(0);
+    // Every history page is scoped to the authenticated wallet.
+    expect(countBuilder.conditions).toEqual([
+      { sql: "transaction.recipient = :recipient", params: { recipient: WALLET } },
+    ]);
+    expect(pageBuilder.conditions).toEqual([
+      { sql: "transaction.recipient = :recipient", params: { recipient: WALLET } },
+    ]);
     expect(pageBuilder.orders).toEqual([
       ["transaction.timestamp", "DESC"],
       ["transaction.id", "DESC"],
@@ -175,9 +193,13 @@ describe("GET /transactions/history cursor pagination", () => {
     expect(res.body.transactions).toHaveLength(1);
 
     const [, pageBuilder] = h.builders;
-    expect(pageBuilder.conditions).toHaveLength(1);
-    expect(pageBuilder.conditions[0].sql).toContain("transaction.timestamp < :cursorTimestamp");
-    expect(pageBuilder.conditions[0].params).toEqual({
+    expect(pageBuilder.conditions).toHaveLength(2);
+    expect(pageBuilder.conditions[0]).toEqual({
+      sql: "transaction.recipient = :recipient",
+      params: { recipient: WALLET },
+    });
+    expect(pageBuilder.conditions[1].sql).toContain("transaction.timestamp < :cursorTimestamp");
+    expect(pageBuilder.conditions[1].params).toEqual({
       cursorTimestamp: ROW_B.timestamp,
       cursorId: ROW_B.id,
     });
@@ -208,7 +230,9 @@ describe("GET /transactions/history cursor pagination", () => {
     const [, pageBuilder] = h.builders;
     expect(pageBuilder.skipValue).toBe(10);
     expect(pageBuilder.takeValue).toBe(6);
-    expect(pageBuilder.conditions).toHaveLength(0);
+    expect(pageBuilder.conditions).toEqual([
+      { sql: "transaction.recipient = :recipient", params: { recipient: WALLET } },
+    ]);
   });
 
   it("applies wallet, status and date filters to both queries", async () => {

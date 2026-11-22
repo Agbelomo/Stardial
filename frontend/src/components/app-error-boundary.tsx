@@ -3,6 +3,9 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import * as Sentry from "@sentry/nextjs";
 
+import { captureCurrentRoute } from "@/lib/route-context";
+import { ErrorRecoveryActions } from "./error-recovery-actions";
+
 interface Props {
   children: ReactNode;
 }
@@ -23,6 +26,7 @@ export class AppErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    captureCurrentRoute();
     if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
       Sentry.captureException(error, {
         contexts: { react: { componentStack: errorInfo.componentStack ?? "" } },
@@ -45,13 +49,7 @@ export class AppErrorBoundary extends Component<Props, State> {
             <p className="mt-2 text-sm text-red-900/80">
               Please refresh the page. If the issue persists, reconnect your wallet and try again.
             </p>
-            <button
-              type="button"
-              onClick={this.handleReset}
-              className="mt-4 rounded-full bg-red-900 px-5 py-2 text-sm font-semibold text-white"
-            >
-              Try again
-            </button>
+            <ErrorRecoveryActions retry={this.handleReset} />
           </div>
         </main>
       );

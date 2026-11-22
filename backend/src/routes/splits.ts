@@ -27,7 +27,6 @@ import {
   stellarAddressSchema,
   createSplitSchema,
   projectIdParamSchema,
-  lockProjectSchema,
   depositSchema,
   updateMetadataSchema,
   updateCollaboratorsSchema,
@@ -79,7 +78,6 @@ import {
   simulateReadOnlyContractCall,
   listProjects,
   fetchProjectById,
-  buildLockProjectUnsignedXdr,
   buildDepositUnsignedXdr,
   buildUpdateCollaboratorsUnsignedXdr,
   buildUpdateMetadataUnsignedXdr,
@@ -92,6 +90,10 @@ import {
   buildUnsignedContractCall,
   assertProjectOwner,
 } from "../services/splits.service.js";
+import {
+  serializeProjectDetail,
+  serializeProjectList,
+} from "../serializers/projects.serializer.js";
 import { logger } from "../services/logger.js";
 import { idempotencyMiddleware } from "../middleware/idempotency.js";
 import { recordProjectEdit } from "../services/project-history.js";
@@ -182,6 +184,29 @@ function sendValidationError(
   });
 }
 
+/**
+ * Rejects raw HTML/XML markup in user-supplied text fields. The schemas
+ * sanitize markup for storage, but the API boundary should not accept
+ * executable markup at all: reflected-validation responses must never echo
+ * it, and downstream consumers should only ever see plain text.
+ */
+function containsHtmlMarkup(value: unknown): boolean {
+  return typeof value === "string" && /<\s*\/?\s*[a-z][^>]*>/i.test(value);
+}
+
+function bodyContainsHtmlMarkup(body: unknown): boolean {
+  if (!body || typeof body !== "object") return false;
+  return Object.values(body as Record<string, unknown>).some((value) => {
+    if (containsHtmlMarkup(value)) return true;
+    if (Array.isArray(value)) {
+      return value.some(
+        (item) => item !== null && typeof item === "object" && bodyContainsHtmlMarkup(item),
+      );
+    }
+    return false;
+  });
+}
+
 function sendRpcError(res: Response, requestId: string, message: string, status = 502) {
   return sendErrorResponse(res, status, {
     error: "rpc_error",
@@ -264,15 +289,12 @@ splitsRouter.get("/", async (req: Request, res: Response, next: NextFunction) =>
       ? decodeContractValue("simulateTransaction:get_project_count", contractU32Schema, totalRetval)
       : projects.length;
 
-    return res.status(200).json(
-      serializeBigInts({
-        projects,
-        total,
-        start,
-        limit,
-        hasMore: start + projects.length < total,
-      })
-    );
+    return res.status(200).json({
+      ...serializeProjectList(projects, total, null),
+      start,
+      limit,
+      hasMore: start + projects.length < total,
+    });
   } catch (error) {
     return next(error);
   }
@@ -307,48 +329,8 @@ splitsRouter.get("/:projectId", async (req: Request, res: Response, next: NextFu
       );
     }
 
-    return res.status(200).json(serializeBigInts(project));
+    return res.status(200).json(serializeProjectDetail(project));
   } catch (error) {
-    return next(error);
-  }
-});
-
-splitsRouter.post("/:projectId/lock", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const parsedId = projectIdParamSchema.safeParse(req.params.projectId);
-    if (!parsedId.success) {
-      throw new AppError(
-        ErrorType.VALIDATION,
-        ErrorCode.VALIDATION_ERROR,
-        "Invalid projectId format.",
-        undefined,
-        parsedId.error.flatten()
-      );
-    }
-    const projectId = parsedId.data;
-
-    const parsedBody = lockProjectSchema.safeParse(req.body);
-
-    if (!parsedBody.success) {
-      throw new AppError(
-        ErrorType.VALIDATION,
-        ErrorCode.VALIDATION_ERROR,
-        "Invalid request payload.",
-        { message: "Check owner address." },
-        parsedBody.error.flatten()
-      );
-    }
-
-    const result = await buildLockProjectUnsignedXdr({
-      projectId,
-      owner: parsedBody.data.owner,
-    });
-
-    return res.status(200).json(result);
-  } catch (error) {
-    if (error instanceof RequestValidationError) {
-      throw new AppError(ErrorType.VALIDATION, ErrorCode.VALIDATION_ERROR, error.message);
-    }
     return next(error);
   }
 });
@@ -416,7 +398,10 @@ splitsRouter.get(
   )
 );
 
-splitsRouter.post("/:projectId/deposit", idempotencyMiddleware(), async (req, res, next) => {
+splitsRouter.post(
+  "/:projectId/deposit",
+  idempotencyMiddleware,
+  async (req: Request, res: Response, next: NextFunction) => {
   try {
     const requestId = res.locals.requestId;
 
@@ -555,6 +540,10 @@ splitsRouter.post("/", idempotencyMiddleware(), async (req, res, next) => {
         "Invalid request payload.",
         parsed.error.flatten()
       );
+    }
+
+    if (bodyContainsHtmlMarkup(req.body)) {
+      return sendValidationError(res, requestId, "HTML markup is not allowed in text fields.");
     }
 
     try {

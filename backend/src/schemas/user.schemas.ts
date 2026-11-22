@@ -26,7 +26,7 @@ export const userRegistrationSchema = z.object({
     .min(8, "Password must be at least 8 characters")
     .max(72, "Password must be at most 72 characters")
     .optional(),
-});
+}).strict();
 
 
 // User response schema
@@ -41,10 +41,15 @@ export const userResponseSchema = z.object({
   updatedAt: z.string(),
 });
 
-export const userUpdateSchema = z.object({
-  email: userRegistrationSchema.shape.email,
-  alias: userRegistrationSchema.shape.alias,
-}).strict();
+export const userUpdateSchema = z
+  .object({
+    email: userRegistrationSchema.shape.email,
+    alias: userRegistrationSchema.shape.alias,
+  })
+  .strict()
+  .refine((value) => value.email !== undefined || value.alias !== undefined, {
+    message: "At least one of email or alias must be provided",
+  });
 
 export type UserUpdate = z.infer<typeof userUpdateSchema>;
 

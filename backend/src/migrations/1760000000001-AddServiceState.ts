@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import type { MigrationInterface, QueryRunner } from "typeorm";
 
 export class AddServiceState1760000000001 implements MigrationInterface {
   name = "AddServiceState1760000000001";

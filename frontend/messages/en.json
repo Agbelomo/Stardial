@@ -1,7 +1,10 @@
 {
   "Error": {
     "title": "Unexpected application error",
-    "retry": "Try again"
+    "retry": "Try again",
+    "back": "Go back",
+    "home": "Back to home",
+    "context": "You were on:"
   },
   "SplitApp": {
     "header": {

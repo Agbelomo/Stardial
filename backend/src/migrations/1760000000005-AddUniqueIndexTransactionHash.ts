@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import type { MigrationInterface, QueryRunner } from "typeorm";
 
 export class AddUniqueIndexTransactionHash1760000000005 implements MigrationInterface {
   name = "AddUniqueIndexTransactionHash1760000000005";
