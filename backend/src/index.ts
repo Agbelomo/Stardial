@@ -22,6 +22,7 @@ import { webhooksRouter } from "./routes/webhooks.js";
 import { errorHandler, notFoundHandler } from "./middleware/error.js";
 import { responseCompression } from "./middleware/compression.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
+import { idempotentMutations } from "./middleware/idempotency.js";
 import { apiVersionMiddleware } from "./middleware/api-version.js";
 import {
   metricsMiddleware,
@@ -128,6 +129,10 @@ app.use(
 app.use(requestIdMiddleware);
 app.use(apiVersionMiddleware);
 app.use(express.json({ limit: "1mb" }));
+// Issue #17: retries must not duplicate writes. Mounted once for every
+// mutation method so new routes are covered by default. Opt-in via the
+// `Idempotency-Key` header, so behaviour is unchanged for existing clients.
+app.use(idempotentMutations());
 // Write routes take an object body. `express.json()` also parses a top-level
 // array, which no route schema can validate, so reject it before any handler.
 app.use(requireJsonObjectBody);
