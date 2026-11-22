@@ -12,132 +12,119 @@ const positiveIntString = (name: string) =>
     .optional()
     .refine(
       (val) => val === undefined || (Number.isInteger(Number(val)) && Number(val) > 0),
-      `${name} must be a positive integer`,
+      `${name} must be a positive integer`
     );
 
-const backendEnvSchema = z.object({
-  NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+const backendEnvSchema = z
+  .object({
+    NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
 
-  PORT: z
-    .string()
-    .optional()
-    .default("3001")
-    .refine((val) => {
-      const n = Number(val);
-      return Number.isInteger(n) && n >= 1 && n <= 65535;
-    }, "PORT must be a valid port number between 1 and 65535"),
+    PORT: z
+      .string()
+      .optional()
+      .default("3001")
+      .refine((val) => {
+        const n = Number(val);
+        return Number.isInteger(n) && n >= 1 && n <= 65535;
+      }, "PORT must be a valid port number between 1 and 65535"),
 
-  CORS_ORIGIN: z.string().optional(),
-  JWT_REFRESH_SECRET: z.string().optional(),
-  JWT_REFRESH_EXPIRES_IN: z.string().optional(),
-  LOG_LEVEL: z.string().optional().default("info"),
-  LOG_FORMAT: z.enum(["json", "pretty"]).optional().default("pretty"),
+    CORS_ORIGIN: z.string().optional(),
+    JWT_REFRESH_SECRET: z.string().optional(),
+    JWT_REFRESH_EXPIRES_IN: z.string().optional(),
+    LOG_LEVEL: z.string().optional().default("info"),
+    LOG_FORMAT: z.enum(["json", "pretty"]).optional().default("pretty"),
 
-  SENTRY_DSN: z.string().url("SENTRY_DSN must be a valid URL").optional(),
-  SENTRY_ENVIRONMENT: z.string().optional(),
-  SENTRY_SCRUB_WALLET_ADDRESSES: z
-    .enum(["true", "false"])
-    .optional()
-    .default("true"),
+    SENTRY_DSN: z.string().url("SENTRY_DSN must be a valid URL").optional(),
+    SENTRY_ENVIRONMENT: z.string().optional(),
+    SENTRY_SCRUB_WALLET_ADDRESSES: z.enum(["true", "false"]).optional().default("true"),
 
-  LOG_SCRUB_WALLET_ADDRESSES: z
-    .enum(["true", "false"])
-    .optional()
-    .default(process.env.NODE_ENV === "production" ? "true" : "false"),
+    LOG_SCRUB_WALLET_ADDRESSES: z
+      .enum(["true", "false"])
+      .optional()
+      .default(process.env.NODE_ENV === "production" ? "true" : "false"),
 
-  PAYMENTS_ADMIN_API_KEY: z.string().optional(),
-  PAYMENTS_ADMIN_WRITE_ENABLED: z
-    .enum(["true", "false"])
-    .optional()
-    .default("true"),
+    PAYMENTS_ADMIN_API_KEY: z.string().optional(),
+    PAYMENTS_ADMIN_WRITE_ENABLED: z.enum(["true", "false"]).optional().default("true"),
 
-  STRICT_RESPONSE_VALIDATION: z
-    .enum(["true", "false"])
-    .optional()
-    .default("false"),
+    WEBHOOK_SIGNING_SECRET: z.string().min(16).optional(),
+    WEBHOOK_SIGNING_SECRETS: z.string().optional(),
 
-  DATABASE_URL: z
-    .string()
-    .url("DATABASE_URL must be a valid PostgreSQL connection string"),
+    STRICT_RESPONSE_VALIDATION: z.enum(["true", "false"]).optional().default("false"),
 
-  HORIZON_URL: z
-    .string()
-    .min(1, "HORIZON_URL must not be empty")
-    .url("HORIZON_URL must be a valid URL, e.g. https://horizon-testnet.stellar.org"),
+    DATABASE_URL: z.string().url("DATABASE_URL must be a valid PostgreSQL connection string"),
 
-  SOROBAN_RPC_URL: z
-    .string()
-    .min(1, "SOROBAN_RPC_URL must not be empty")
-    .url("SOROBAN_RPC_URL must be a valid URL, e.g. https://soroban-testnet.stellar.org"),
+    HORIZON_URL: z
+      .string()
+      .min(1, "HORIZON_URL must not be empty")
+      .url("HORIZON_URL must be a valid URL, e.g. https://horizon-testnet.stellar.org"),
 
-  // Optional comma-separated fallback endpoints. Parsed and URL-validated by the RPC health policy.
-  SOROBAN_RPC_BACKUP_URLS: z.string().optional().default(""),
+    SOROBAN_RPC_URL: z
+      .string()
+      .min(1, "SOROBAN_RPC_URL must not be empty")
+      .url("SOROBAN_RPC_URL must be a valid URL, e.g. https://soroban-testnet.stellar.org"),
 
-  SOROBAN_NETWORK_PASSPHRASE: z
-    .string()
-    .min(1, "SOROBAN_NETWORK_PASSPHRASE must not be empty"),
+    // Optional comma-separated fallback endpoints. Parsed and URL-validated by the RPC health policy.
+    SOROBAN_RPC_BACKUP_URLS: z.string().optional().default(""),
 
-  CONTRACT_ID: stellarContractIdSchema,
+    SOROBAN_NETWORK_PASSPHRASE: z.string().min(1, "SOROBAN_NETWORK_PASSPHRASE must not be empty"),
 
-  SIMULATOR_ACCOUNT: z
-    .string()
-    .min(1, "SIMULATOR_ACCOUNT must not be empty"),
+    CONTRACT_ID: stellarContractIdSchema,
 
-  RATE_LIMIT_WINDOW_MS: positiveIntString("RATE_LIMIT_WINDOW_MS"),
-  RATE_LIMIT_MAX: positiveIntString("RATE_LIMIT_MAX"),
-  // Per-endpoint overrides, optional. Fall back to RATE_LIMIT_WINDOW_MS / RATE_LIMIT_MAX.
-  RATE_LIMIT_WRITE_MAX: positiveIntString("RATE_LIMIT_WRITE_MAX"),
-  RATE_LIMIT_READ_MAX: positiveIntString("RATE_LIMIT_READ_MAX"),
-  RATE_LIMIT_LOG_REJECTIONS: z
-    .enum(["true", "false"])
-    .optional()
-    .default("true"),
+    SIMULATOR_ACCOUNT: z.string().min(1, "SIMULATOR_ACCOUNT must not be empty"),
 
-  SHUTDOWN_FORCE_TIMEOUT_MS: z.string().optional(),
+    RATE_LIMIT_WINDOW_MS: positiveIntString("RATE_LIMIT_WINDOW_MS"),
+    RATE_LIMIT_MAX: positiveIntString("RATE_LIMIT_MAX"),
+    // Per-endpoint overrides, optional. Fall back to RATE_LIMIT_WINDOW_MS / RATE_LIMIT_MAX.
+    RATE_LIMIT_WRITE_MAX: positiveIntString("RATE_LIMIT_WRITE_MAX"),
+    RATE_LIMIT_READ_MAX: positiveIntString("RATE_LIMIT_READ_MAX"),
+    RATE_LIMIT_LOG_REJECTIONS: z.enum(["true", "false"]).optional().default("true"),
 
-  READ_CACHE_TTL_MS: positiveIntString("READ_CACHE_TTL_MS"),
-  READ_CACHE_MAX_ENTRIES: positiveIntString("READ_CACHE_MAX_ENTRIES"),
-  DATABASE_POOL_MAX: positiveIntString("DATABASE_POOL_MAX"),
-  DATABASE_POOL_IDLE_MS: positiveIntString("DATABASE_POOL_IDLE_MS"),
-  DATABASE_POOL_CONN_TIMEOUT_MS: positiveIntString("DATABASE_POOL_CONN_TIMEOUT_MS"),
+    SHUTDOWN_FORCE_TIMEOUT_MS: z.string().optional(),
 
-  MAINNET_CONTRACT_ID: stellarContractIdSchema.optional(),
+    READ_CACHE_TTL_MS: positiveIntString("READ_CACHE_TTL_MS"),
+    READ_CACHE_MAX_ENTRIES: positiveIntString("READ_CACHE_MAX_ENTRIES"),
+    DATABASE_POOL_MAX: positiveIntString("DATABASE_POOL_MAX"),
+    DATABASE_POOL_IDLE_MS: positiveIntString("DATABASE_POOL_IDLE_MS"),
+    DATABASE_POOL_CONN_TIMEOUT_MS: positiveIntString("DATABASE_POOL_CONN_TIMEOUT_MS"),
 
-  RENDER_BACKEND_DEPLOY_HOOK_URL: z
-    .string()
-    .url("RENDER_BACKEND_DEPLOY_HOOK_URL must be a valid URL")
-    .optional(),
-}).superRefine((data, ctx) => {
-  if (data.NODE_ENV === "production") {
-    if (!data.CORS_ORIGIN || data.CORS_ORIGIN.trim().length === 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["CORS_ORIGIN"],
-        message:
-          "CORS_ORIGIN is required in production. Set it to a comma-separated list of allowed frontend origins (e.g. https://app.stardial.com).",
-      });
-    } else {
-      const origins = data.CORS_ORIGIN.split(",").map((o) => o.trim());
-      if (origins.includes("*")) {
+    MAINNET_CONTRACT_ID: stellarContractIdSchema.optional(),
+
+    RENDER_BACKEND_DEPLOY_HOOK_URL: z
+      .string()
+      .url("RENDER_BACKEND_DEPLOY_HOOK_URL must be a valid URL")
+      .optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.NODE_ENV === "production") {
+      if (!data.CORS_ORIGIN || data.CORS_ORIGIN.trim().length === 0) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["CORS_ORIGIN"],
           message:
-            "CORS_ORIGIN must not contain '*' in production. Specify explicit frontend origin(s).",
+            "CORS_ORIGIN is required in production. Set it to a comma-separated list of allowed frontend origins (e.g. https://app.stardial.com).",
+        });
+      } else {
+        const origins = data.CORS_ORIGIN.split(",").map((o) => o.trim());
+        if (origins.includes("*")) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["CORS_ORIGIN"],
+            message:
+              "CORS_ORIGIN must not contain '*' in production. Specify explicit frontend origin(s).",
+          });
+        }
+      }
+
+      if (!data.PAYMENTS_ADMIN_API_KEY || data.PAYMENTS_ADMIN_API_KEY.trim().length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["PAYMENTS_ADMIN_API_KEY"],
+          message:
+            "PAYMENTS_ADMIN_API_KEY is required in production to protect /splits/admin wallet and payment operations.",
         });
       }
     }
-
-    if (!data.PAYMENTS_ADMIN_API_KEY || data.PAYMENTS_ADMIN_API_KEY.trim().length === 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["PAYMENTS_ADMIN_API_KEY"],
-        message:
-          "PAYMENTS_ADMIN_API_KEY is required in production to protect /splits/admin wallet and payment operations.",
-      });
-    }
-  }
-});
+  });
 
 export type BackendEnv = z.infer<typeof backendEnvSchema>;
 
@@ -155,7 +142,7 @@ export function validateEnv(): BackendEnv {
         "[env] Server cannot start - fix the following environment variable issues:",
         ...lines,
         "",
-        "Copy backend/.env.example to backend/.env and fill in the missing values."
+        "Copy backend/.env.example to backend/.env and fill in the missing values.",
       ].join("\n")
     );
   }
@@ -181,9 +168,7 @@ export interface EnvIssue {
   message: string;
 }
 
-export type EnvDiagnosticsResult =
-  | { ok: true }
-  | { ok: false; issues: EnvIssue[] };
+export type EnvDiagnosticsResult = { ok: true } | { ok: false; issues: EnvIssue[] };
 
 export function getEnvDiagnostics(): EnvDiagnosticsResult {
   const result = backendEnvSchema.safeParse(process.env);
@@ -196,8 +181,8 @@ export function getEnvDiagnostics(): EnvDiagnosticsResult {
     ok: false,
     issues: result.error.issues.map((issue) => ({
       key: issue.path.join(".") || "unknown",
-      message: issue.message
-    }))
+      message: issue.message,
+    })),
   };
 }
 
@@ -231,7 +216,7 @@ export function printEnvDiagnostics(): void {
     { key: "DATABASE_POOL_IDLE_MS", required: false },
     { key: "DATABASE_POOL_CONN_TIMEOUT_MS", required: false },
     { key: "READ_CACHE_TTL_MS", required: false },
-    { key: "READ_CACHE_MAX_ENTRIES", required: false }
+    { key: "READ_CACHE_MAX_ENTRIES", required: false },
   ];
 
   logger.info("[env] Environment diagnostics:");

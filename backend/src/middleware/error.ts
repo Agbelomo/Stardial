@@ -1,5 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { randomUUID } from "crypto";
+import { sanitizeErrorDetails, sendErrorResponse } from "../lib/api-error.js";
+export { sanitizeErrorDetails } from "../lib/api-error.js";
 import { ZodError } from "zod";
 import { AppError, ErrorCode, ErrorType } from "../lib/errors.js";
 import { logger } from "../services/logger.js";
@@ -7,83 +9,6 @@ import { RpcError, RpcTimeoutError } from "../services/stellar.js";
 
 function isProduction(): boolean {
   return process.env.NODE_ENV === "production";
-}
-
-/**
- * Issue #4: error `details` are developer metadata, not API surface.
- *
- * `AppError.details` is populated at throw sites with whatever aids
- * debugging — upstream exception objects, raw node/Soroban messages, and in
- * the past literal `stack` strings. Spreading it into the response body
- * leaked file names, absolute paths and dependency internals to API
- * consumers. Everything below is stripped (or redacted) before serialisation:
- *
- *  - keys that conventionally hold stack frames or nested exceptions
- *  - `Error` instances, functions, symbols and other non-serialisable values
- *  - strings that look like V8 stack frames or `file.ts:line:col` locations
- */
-const REDACTED = "[REDACTED]";
-const MAX_DETAIL_DEPTH = 4;
-
-const UNSAFE_DETAIL_KEYS = new Set([
-  "stack",
-  "stacktrace",
-  "trace",
-  "originalerror",
-  "originalexception",
-  "cause",
-  "err",
-  "rawerror",
-]);
-
-const STACK_FRAME_PATTERN =
-  /(?:\n\s+at\s)|(?:\bnode:internal\/)|(?:\b[A-Za-z]:\\[^:\n]+:\d+:\d+)|(?:\/[^\s:]+\.(?:ts|tsx|js|mjs|cjs):\d+:\d+)/;
-
-function sanitizeDetailValue(value: unknown, depth: number): unknown {
-  if (value === null || value === undefined) return undefined;
-
-  const type = typeof value;
-  if (type === "string") {
-    return STACK_FRAME_PATTERN.test(value as string) ? REDACTED : value;
-  }
-  if (type === "number" || type === "boolean") return value;
-  // JSON.stringify throws on BigInt; surface it as a string instead.
-  if (type === "bigint") return (value as bigint).toString();
-  if (type !== "object") return undefined; // functions, symbols
-
-  if (value instanceof Date) return value.toISOString();
-  if (value instanceof Error) return undefined;
-  if (Array.isArray(value)) {
-    return value
-      .map((entry) => sanitizeDetailValue(entry, depth + 1))
-      .filter((entry) => entry !== undefined);
-  }
-  if (depth >= MAX_DETAIL_DEPTH) return REDACTED;
-
-  return sanitizeDetailRecord(value as Record<string, unknown>, depth + 1);
-}
-
-function sanitizeDetailRecord(record: Record<string, unknown>, depth: number) {
-  const safe: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(record)) {
-    if (UNSAFE_DETAIL_KEYS.has(key.toLowerCase())) continue;
-    const sanitized = sanitizeDetailValue(value, depth);
-    if (sanitized !== undefined) safe[key] = sanitized;
-  }
-  return safe;
-}
-
-/**
- * Returns the client-safe subset of an error's `details` object. Exported so
- * the contract can be unit-tested directly.
- */
-export function sanitizeErrorDetails(details: unknown): Record<string, unknown> {
-  if (typeof details !== "object" || details === null || details instanceof Error) {
-    return {};
-  }
-  if (Array.isArray(details)) return {};
-
-  return sanitizeDetailRecord(details as Record<string, unknown>, 0);
 }
 
 function formatZodError(err: ZodError) {
@@ -109,38 +34,32 @@ function formatZodError(err: ZodError) {
  * ("Unknown-route contract").
  */
 export function notFoundHandler(_req: Request, res: Response) {
-  const requestId = res.locals.requestId ?? randomUUID();
-  res.status(404).json({
+  sendErrorResponse(res, 404, {
     error: "not_found",
     code: "NOT_FOUND",
     message: "The requested resource does not exist.",
-    requestId,
     details: {},
   });
 }
 
-/**
- * Maps an AppError to an HTTP status code.
- *
- * ASSUMPTION: this only knows about the ErrorCode/ErrorType members
- * already referenced in the original handler (NOT_FOUND, VALIDATION,
- * AUTH). If lib/errors.js defines more (CONFLICT, FORBIDDEN,
- * RATE_LIMITED, etc.), add them below — otherwise they'll silently fall
- * through to 500.
- *
- * Checks for an explicit `statusCode` on the error first. Longer term
- * it's more robust to have AppError carry its own status at the point
- * it's thrown (`throw new AppError(..., { statusCode: 409 })`) than to
- * have this handler reverse-engineer HTTP semantics from a business enum
- * — this function supports that without requiring it.
- */
+/** Map domain failures to HTTP semantics; explicit error statuses take precedence. */
 function resolveAppErrorStatus(err: AppError): number {
   const explicitStatus = (err as AppError & { statusCode?: unknown }).statusCode;
-  if (typeof explicitStatus === "number") {
+  if (
+    typeof explicitStatus === "number" &&
+    Number.isInteger(explicitStatus) &&
+    explicitStatus >= 400 &&
+    explicitStatus <= 599
+  ) {
     return explicitStatus;
   }
 
-  if (err.code === ErrorCode.NOT_FOUND) return 404;
+  if (
+    err.code === ErrorCode.NOT_FOUND ||
+    err.code === ErrorCode.ACCOUNT_NOT_FOUND ||
+    err.code === ErrorCode.CONTRACT_NOT_FOUND
+  )
+    return 404;
   if (err.code === ErrorCode.UNAUTHORIZED) return 401;
   if (err.type === ErrorType.VALIDATION) return 400;
   if (err.type === ErrorType.FORBIDDEN) return 403;
@@ -151,17 +70,34 @@ function resolveAppErrorStatus(err: AppError): number {
   if (err.type === ErrorType.AUTH) return 401;
   if (err.type === ErrorType.CONFLICT) return 409;
   if (err.type === ErrorType.ACCOUNT_STATE) {
-    return err.code === ErrorCode.ACCOUNT_NOT_FOUND ? 404 : 409;
+    return 409;
+  }
+  if (err.type === ErrorType.RPC) return 502;
+  if (err.type === ErrorType.CONTRACT) {
+    if (
+      err.code === ErrorCode.PROJECT_EXISTS ||
+      err.code === ErrorCode.ALREADY_LOCKED ||
+      err.code === ErrorCode.PROJECT_LOCKED ||
+      err.code === ErrorCode.NO_BALANCE ||
+      err.code === ErrorCode.INSUFFICIENT_UNALLOCATED ||
+      err.code === ErrorCode.SPLIT_EXPIRED
+    )
+      return 409;
+    if (err.code === ErrorCode.DISTRIBUTIONS_PAUSED) return 409;
+    if (
+      err.code === ErrorCode.INVALID_SPLIT ||
+      err.code === ErrorCode.TOO_FEW_COLLABORATORS ||
+      err.code === ErrorCode.ZERO_SHARE ||
+      err.code === ErrorCode.DUPLICATE_COLLABORATOR ||
+      err.code === ErrorCode.INVALID_AMOUNT ||
+      err.code === ErrorCode.TOKEN_NOT_ALLOWED
+    )
+      return 400;
   }
   return 500;
 }
 
-export function errorHandler(
-  err: unknown,
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) {
+export function errorHandler(err: unknown, req: Request, res: Response, next: NextFunction) {
   // If a response has already started streaming, sending another JSON
   // body throws "Cannot set headers after they are sent" and crashes the
   // process instead of gracefully handling the error. Hand off to
@@ -184,7 +120,7 @@ export function errorHandler(
   // ZodError is a real exported class, so this is both simpler and more
   // reliable than reflecting on shape.
   if (err instanceof ZodError) {
-    return res.status(400).json({
+    return sendErrorResponse(res, 400, {
       ...formatZodError(err),
       requestId,
     });
@@ -212,7 +148,7 @@ export function errorHandler(
       details: safeDetails,
     });
 
-    return res.status(status).json({
+    return sendErrorResponse(res, status, {
       error: err.code.toLowerCase(),
       code: err.code,
       // A 5xx AppError carries an internal message (an upstream client error,
@@ -235,14 +171,19 @@ export function errorHandler(
   // when the request body contains invalid JSON syntax.  Handle it before
   // the generic "unhandled error" path so clients always get a predictable
   // 400 error shape instead of a 500.  (Issue #1028)
-  const parseError = err as { type?: string; status?: number; statusCode?: number; message?: string };
+  const parseError = err as {
+    type?: string;
+    status?: number;
+    statusCode?: number;
+    message?: string;
+  };
   if (parseError.type === "entity.parse.failed") {
     logger.warn("Malformed JSON payload", {
       requestId,
       path: req.originalUrl,
       method: req.method,
     });
-    return res.status(400).json({
+    return sendErrorResponse(res, 400, {
       error: "invalid_json",
       code: "INVALID_JSON",
       message: "Malformed JSON in request body.",
@@ -263,7 +204,7 @@ export function errorHandler(
       method: req.method,
       contentLength: req.headers["content-length"],
     });
-    return res.status(413).json({
+    return sendErrorResponse(res, 413, {
       error: "payload_too_large",
       code: "PAYLOAD_TOO_LARGE",
       message: "Request body exceeds the maximum allowed size (1 MB).",
@@ -280,7 +221,7 @@ export function errorHandler(
   // an unhandled exception.
   if (err instanceof RpcTimeoutError) {
     logger.warn("RPC timeout", { requestId, path: req.originalUrl, message: err.message });
-    return res.status(504).json({
+    return sendErrorResponse(res, 504, {
       error: "timeout_error",
       code: "RPC_TIMEOUT",
       message: err.message,
@@ -296,7 +237,7 @@ export function errorHandler(
       statusCode: err.statusCode,
       message: err.message,
     });
-    return res.status(err.statusCode).json({
+    return sendErrorResponse(res, err.statusCode, {
       error: "rpc_error",
       code: "RPC_ERROR",
       message: err.message,
@@ -326,7 +267,7 @@ export function errorHandler(
     });
   }
 
-  res.status(500).json({
+  sendErrorResponse(res, 500, {
     error: "internal_error",
     code: "INTERNAL_ERROR",
     // Never leak internal error messages (stack traces, DB connection

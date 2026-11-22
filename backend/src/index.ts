@@ -18,6 +18,7 @@ import { transactionsRouter } from "./routes/transactions.js";
 import { eventsRouter, closeAllSseConnections } from "./routes/events.js";
 import { ledgerRouter } from "./routes/ledger.js";
 import { notificationsRouter } from "./routes/notifications.js";
+import { webhooksRouter } from "./routes/webhooks.js";
 import { errorHandler, notFoundHandler } from "./middleware/error.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
 import {
@@ -84,15 +85,33 @@ app.use(
     origin: corsOrigin,
     credentials: false,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Authorization", "Content-Type", "X-Request-ID", "Idempotency-Key"],
+    allowedHeaders: [
+      "Authorization",
+      "Content-Type",
+      "X-Request-ID",
+      "Idempotency-Key",
+      "X-Webhook-Signature",
+      "X-Webhook-Timestamp",
+      "X-Webhook-Id",
+      "X-Delivery-Id",
+      "X-Event-Id",
+    ],
     exposedHeaders: ["X-Request-ID", "Retry-After"],
   })
 );
 // Before express.json() so 413 rejections are still counted (Issue #1090).
 app.use(payloadSizeMetricsMiddleware);
 app.use(splitLifecycleMetricsMiddleware);
-app.use(express.json({ limit: "1mb" }));
+app.use(
+  express.json({
+    limit: "1mb",
+    verify: (req, _res, body) => {
+      (req as express.Request & { rawBody?: Buffer }).rawBody = Buffer.from(body);
+    },
+  })
+);
 app.use(requestIdMiddleware);
+app.use(express.json({ limit: "1mb" }));
 app.use(metricsMiddleware);
 app.use(requestTimeout());
 
@@ -186,6 +205,8 @@ app.use("/transactions", transactionsRouter);
 app.use("/events", eventsRouter);
 app.use("/api/ledger", ledgerRouter);
 app.use("/notifications", notificationsRouter);
+app.use("/webhooks", webhooksRouter);
+app.use("/v1/webhooks", webhooksRouter);
 
 app.get("/api/openapi.json", async (_req, res, next) => {
   try {
@@ -209,7 +230,9 @@ const swaggerOptions = {
 };
 
 app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(null, swaggerOptions));
-app.get("/api/docs/", (_req, res) => { res.redirect("/api/docs"); });
+app.get("/api/docs/", (_req, res) => {
+  res.redirect("/api/docs");
+});
 
 app.use(notFoundHandler);
 app.use(errorHandler);
@@ -224,7 +247,10 @@ async function initSentry(): Promise<void> {
     release: process.env.npm_package_version,
     beforeSend(event) {
       if (scrubWallets) {
-        const scrubbed = JSON.stringify(event).replace(/\b[GC][A-Z2-7]{55}\b/g, "[WALLET_REDACTED]");
+        const scrubbed = JSON.stringify(event).replace(
+          /\b[GC][A-Z2-7]{55}\b/g,
+          "[WALLET_REDACTED]"
+        );
         return JSON.parse(scrubbed);
       }
       return event;
@@ -242,14 +268,18 @@ if (process.env.NODE_ENV !== "test") {
   const start = async () => {
     try {
       await initSentry();
-      if (process.env.NODE_ENV !== "production") { printEnvDiagnostics(); }
+      if (process.env.NODE_ENV !== "production") {
+        printEnvDiagnostics();
+      }
       validateEnv();
       await initDatabase();
       await startEventListenerService();
       markStartupComplete();
 
       const port = Number(process.env.PORT ?? 3001);
-      const server = app.listen(port, () => { logger.info(`Server started on port ${port}`); });
+      const server = app.listen(port, () => {
+        logger.info(`Server started on port ${port}`);
+      });
 
       const shutdown = async (signal: NodeJS.Signals) => {
         logger.info(`Received ${signal}. Shutting down...`);
@@ -260,12 +290,18 @@ if (process.env.NODE_ENV !== "test") {
         stopEventListenerService();
         await closeDatabase();
         server.close((err?: Error) => {
-          if (err) { logger.error("Error during server close", { error: err }); process.exit(1); }
+          if (err) {
+            logger.error("Error during server close", { error: err });
+            process.exit(1);
+          }
           logger.info("Server closed cleanly");
           process.exit(0);
         });
         const forceTimeoutMs = Number(process.env.SHUTDOWN_FORCE_TIMEOUT_MS ?? 10_000);
-        setTimeout(() => { logger.warn("Force exiting after timeout"); process.exit(1); }, forceTimeoutMs).unref();
+        setTimeout(() => {
+          logger.warn("Force exiting after timeout");
+          process.exit(1);
+        }, forceTimeoutMs).unref();
       };
 
       process.on("SIGINT", shutdown);

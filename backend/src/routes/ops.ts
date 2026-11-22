@@ -1,3 +1,4 @@
+import { sendErrorResponse } from "../lib/api-error.js";
 import { Router, type NextFunction } from "express";
 import { logger } from "../services/logger.js";
 import { getEnvDiagnostics } from "../config/env.js";
@@ -48,7 +49,7 @@ opsRouter.post(
   "/backfill",      withResponseValidation(OpsBackfillResponseSchema, async (req, res, next: NextFunction) => {
     const parsed = OpsBackfillRequestSchema.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({
+      sendErrorResponse(res, 400, {
         success: false,
         error: "invalid_backfill_request",
         message: "A positive integer `fromLedger` is required (the last known good ledger).",
@@ -169,7 +170,7 @@ opsRouter.get(
     if (!dbComponent.ok) missing.push("db");
     if (!productionReady) missing.push("production_secrets");
 
-    res.status(503).json({
+    sendErrorResponse(res, 503, {
       ...response,
       error: "mainnet_readiness_failed",
       message: "Mainnet readiness validation failed. Review the component details.",

@@ -23,22 +23,30 @@ components:
       properties:
         error:
           type: string
-          description: Machine-readable error code
+          description: Lowercase machine-readable error identifier
+        code:
+          type: string
+          description: Uppercase machine-readable error code
         message:
           type: string
           description: Human-readable error message
         requestId:
           type: string
-          description: Request correlation ID
+          description: Request correlation ID, also sent in X-Request-ID
         details:
           type: object
           additionalProperties:
             nullable: true
-          description: Additional error context
+          description: Additional error context; empty object when absent
       required:
         - error
+        - code
+        - message
+        - requestId
+        - details
       example:
-        error: VALIDATION_ERROR
+        error: validation_error
+        code: VALIDATION_ERROR
         message: collaborators basisPoints must sum to exactly 10000
         requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         details:
@@ -632,7 +640,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: RATE_LIMIT_EXCEEDED
+                details: {}
+                error: rate_limited
+                code: RATE_LIMITED
                 message: Too many requests. Please retry after the rate limit window.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "500":
@@ -642,7 +652,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: INTERNAL_ERROR
+                details: {}
+                error: internal_error
+                code: INTERNAL_ERROR
                 message: An unexpected error occurred. Please try again later.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "502":
@@ -652,7 +664,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: BAD_GATEWAY
+                details: {}
+                error: rpc_error
+                code: RPC_ERROR
                 message: The Stellar network RPC call failed. Please retry.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
     post:
@@ -776,12 +790,13 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: VALIDATION_ERROR
-                message: collaborators basisPoints must sum to exactly 10000
-                requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
                 details:
                   path:
                     - collaborators
+                error: validation_error
+                code: VALIDATION_ERROR
+                message: collaborators basisPoints must sum to exactly 10000
+                requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "409":
           description: Conflict with existing resource
           content:
@@ -789,6 +804,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
+                details: {}
                 error: IDEMPOTENCY_KEY_CONFLICT
                 code: IDEMPOTENCY_KEY_CONFLICT
                 message: Idempotency-Key was already used with a different request payload.
@@ -800,7 +816,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: INTERNAL_ERROR
+                details: {}
+                error: internal_error
+                code: INTERNAL_ERROR
                 message: An unexpected error occurred. Please try again later.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "502":
@@ -810,7 +828,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: BAD_GATEWAY
+                details: {}
+                error: rpc_error
+                code: RPC_ERROR
                 message: The Stellar network RPC call failed. Please retry.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
   /splits/{projectId}:
@@ -849,7 +869,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: NOT_FOUND
+                details: {}
+                error: not_found
+                code: NOT_FOUND
                 message: Project afrobeats_001 does not exist.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "500":
@@ -859,7 +881,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: INTERNAL_ERROR
+                details: {}
+                error: internal_error
+                code: INTERNAL_ERROR
                 message: An unexpected error occurred. Please try again later.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "502":
@@ -869,7 +893,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: BAD_GATEWAY
+                details: {}
+                error: rpc_error
+                code: RPC_ERROR
                 message: The Stellar network RPC call failed. Please retry.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
   /splits/{projectId}/lock:
@@ -920,15 +946,15 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
-              example: &a1
+              example:
+                details: &a1
+                  remediation:
+                    message: Only the project owner can perform this action.
+                    action: Switch Wallet
                 error: unauthorized
                 code: UNAUTHORIZED
                 message: Caller is not the project owner
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
-                details:
-                  remediation:
-                    message: Only the project owner can perform this action.
-                    action: Switch Wallet
         "404":
           description: Resource not found
           content:
@@ -936,7 +962,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: NOT_FOUND
+                details: {}
+                error: not_found
+                code: NOT_FOUND
                 message: Project afrobeats_001 does not exist.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "500":
@@ -946,7 +974,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: INTERNAL_ERROR
+                details: {}
+                error: internal_error
+                code: INTERNAL_ERROR
                 message: An unexpected error occurred. Please try again later.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "502":
@@ -956,7 +986,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: BAD_GATEWAY
+                details: {}
+                error: rpc_error
+                code: RPC_ERROR
                 message: The Stellar network RPC call failed. Please retry.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
   /splits/{projectId}/deposit:
@@ -1025,12 +1057,13 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: VALIDATION_ERROR
-                message: amount must be greater than 0
-                requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
                 details:
                   path:
                     - amount
+                error: validation_error
+                code: VALIDATION_ERROR
+                message: amount must be greater than 0
+                requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "404":
           description: Resource not found
           content:
@@ -1038,7 +1071,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: NOT_FOUND
+                details: {}
+                error: not_found
+                code: NOT_FOUND
                 message: Project afrobeats_001 does not exist.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "500":
@@ -1048,7 +1083,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: INTERNAL_ERROR
+                details: {}
+                error: internal_error
+                code: INTERNAL_ERROR
                 message: An unexpected error occurred. Please try again later.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "502":
@@ -1058,7 +1095,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: BAD_GATEWAY
+                details: {}
+                error: rpc_error
+                code: RPC_ERROR
                 message: The Stellar network RPC call failed. Please retry.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
   /splits/{projectId}/metadata:
@@ -1115,7 +1154,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
-              example: *a1
+              example:
+                details: *a1
+                error: unauthorized
+                code: UNAUTHORIZED
+                message: Caller is not the project owner
+                requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "404":
           description: Resource not found
           content:
@@ -1123,7 +1167,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: NOT_FOUND
+                details: {}
+                error: not_found
+                code: NOT_FOUND
                 message: Project afrobeats_001 does not exist.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "500":
@@ -1133,7 +1179,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: INTERNAL_ERROR
+                details: {}
+                error: internal_error
+                code: INTERNAL_ERROR
                 message: An unexpected error occurred. Please try again later.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "502":
@@ -1143,7 +1191,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: BAD_GATEWAY
+                details: {}
+                error: rpc_error
+                code: RPC_ERROR
                 message: The Stellar network RPC call failed. Please retry.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
   /splits/{projectId}/collaborators:
@@ -1234,19 +1284,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: VALIDATION_ERROR
-                message: duplicate collaborator address found
-                requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
                 details:
                   path:
                     - collaborators
+                error: validation_error
+                code: VALIDATION_ERROR
+                message: duplicate collaborator address found
+                requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "401":
           description: Authentication required
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
-              example: *a1
+              example:
+                details: *a1
+                error: unauthorized
+                code: UNAUTHORIZED
+                message: Caller is not the project owner
+                requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "404":
           description: Resource not found
           content:
@@ -1254,7 +1310,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: NOT_FOUND
+                details: {}
+                error: not_found
+                code: NOT_FOUND
                 message: Project afrobeats_001 does not exist.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "500":
@@ -1264,7 +1322,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: INTERNAL_ERROR
+                details: {}
+                error: internal_error
+                code: INTERNAL_ERROR
                 message: An unexpected error occurred. Please try again later.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "502":
@@ -1274,7 +1334,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: BAD_GATEWAY
+                details: {}
+                error: rpc_error
+                code: RPC_ERROR
                 message: The Stellar network RPC call failed. Please retry.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
   /splits/{projectId}/distribute:
@@ -1328,12 +1390,13 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: VALIDATION_ERROR
-                message: Invalid projectId format.
-                requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
                 details:
                   path:
                     - projectId
+                error: validation_error
+                code: VALIDATION_ERROR
+                message: Invalid projectId format.
+                requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "404":
           description: Resource not found
           content:
@@ -1341,7 +1404,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: NOT_FOUND
+                details: {}
+                error: not_found
+                code: NOT_FOUND
                 message: Project afrobeats_001 does not exist.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "500":
@@ -1351,7 +1416,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: INTERNAL_ERROR
+                details: {}
+                error: internal_error
+                code: INTERNAL_ERROR
                 message: An unexpected error occurred. Please try again later.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "502":
@@ -1361,7 +1428,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: BAD_GATEWAY
+                details: {}
+                error: rpc_error
+                code: RPC_ERROR
                 message: The Stellar network RPC call failed. Please retry.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
   /splits/{projectId}/claimable/{collaborator}:
@@ -1408,7 +1477,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: NOT_FOUND
+                details: {}
+                error: not_found
+                code: NOT_FOUND
                 message: Project afrobeats_001 does not exist.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "500":
@@ -1418,7 +1489,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: INTERNAL_ERROR
+                details: {}
+                error: internal_error
+                code: INTERNAL_ERROR
                 message: An unexpected error occurred. Please try again later.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "502":
@@ -1428,7 +1501,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: BAD_GATEWAY
+                details: {}
+                error: rpc_error
+                code: RPC_ERROR
                 message: The Stellar network RPC call failed. Please retry.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
   /splits/{projectId}/claim:
@@ -1479,7 +1554,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: NOT_FOUND
+                details: {}
+                error: not_found
+                code: NOT_FOUND
                 message: Project afrobeats_001 does not exist.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "500":
@@ -1489,7 +1566,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: INTERNAL_ERROR
+                details: {}
+                error: internal_error
+                code: INTERNAL_ERROR
                 message: An unexpected error occurred. Please try again later.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "502":
@@ -1499,7 +1578,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: BAD_GATEWAY
+                details: {}
+                error: rpc_error
+                code: RPC_ERROR
                 message: The Stellar network RPC call failed. Please retry.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
   /splits/{projectId}/history:
@@ -1577,11 +1658,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: VALIDATION_ERROR
-                message: Invalid query parameters.
-                requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
                 details:
                   message: Check cursor and limit parameters.
+                error: validation_error
+                code: VALIDATION_ERROR
+                message: Invalid query parameters.
+                requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "404":
           description: Resource not found
           content:
@@ -1589,7 +1671,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: NOT_FOUND
+                details: {}
+                error: not_found
+                code: NOT_FOUND
                 message: Project afrobeats_001 does not exist.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "500":
@@ -1599,7 +1683,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: INTERNAL_ERROR
+                details: {}
+                error: internal_error
+                code: INTERNAL_ERROR
                 message: An unexpected error occurred. Please try again later.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "502":
@@ -1609,7 +1695,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: BAD_GATEWAY
+                details: {}
+                error: rpc_error
+                code: RPC_ERROR
                 message: The Stellar network RPC call failed. Please retry.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
   /events:
@@ -1768,7 +1856,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: UNAUTHORIZED
+                details: {}
+                error: unauthorized
+                code: UNAUTHORIZED
                 message: Missing or invalid bearer token / admin API key.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "403":
@@ -1778,7 +1868,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: FORBIDDEN
+                details: {}
+                error: forbidden
+                code: FORBIDDEN
                 message: You do not have permission to perform this action.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "500":
@@ -1788,7 +1880,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: INTERNAL_ERROR
+                details: {}
+                error: internal_error
+                code: INTERNAL_ERROR
                 message: An unexpected error occurred. Please try again later.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "502":
@@ -1798,7 +1892,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: BAD_GATEWAY
+                details: {}
+                error: rpc_error
+                code: RPC_ERROR
                 message: The Stellar network RPC call failed. Please retry.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
   /splits/admin/allow-token:
@@ -1850,7 +1946,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: UNAUTHORIZED
+                details: {}
+                error: unauthorized
+                code: UNAUTHORIZED
                 message: Missing or invalid bearer token / admin API key.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "500":
@@ -1860,7 +1958,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: INTERNAL_ERROR
+                details: {}
+                error: internal_error
+                code: INTERNAL_ERROR
                 message: An unexpected error occurred. Please try again later.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "503":
@@ -1870,7 +1970,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: SERVICE_UNAVAILABLE
+                details: {}
+                error: service_unavailable
+                code: SERVICE_UNAVAILABLE
                 message: The service is temporarily unavailable. Please try again shortly.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
   /splits/admin/disallow-token:
@@ -1922,7 +2024,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: UNAUTHORIZED
+                details: {}
+                error: unauthorized
+                code: UNAUTHORIZED
                 message: Missing or invalid bearer token / admin API key.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "500":
@@ -1932,7 +2036,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: INTERNAL_ERROR
+                details: {}
+                error: internal_error
+                code: INTERNAL_ERROR
                 message: An unexpected error occurred. Please try again later.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "503":
@@ -1942,7 +2048,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: SERVICE_UNAVAILABLE
+                details: {}
+                error: service_unavailable
+                code: SERVICE_UNAVAILABLE
                 message: The service is temporarily unavailable. Please try again shortly.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
   /splits/admin/pause-distributions:
@@ -1988,7 +2096,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: UNAUTHORIZED
+                details: {}
+                error: unauthorized
+                code: UNAUTHORIZED
                 message: Missing or invalid bearer token / admin API key.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "500":
@@ -1998,7 +2108,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: INTERNAL_ERROR
+                details: {}
+                error: internal_error
+                code: INTERNAL_ERROR
                 message: An unexpected error occurred. Please try again later.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "503":
@@ -2008,7 +2120,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: SERVICE_UNAVAILABLE
+                details: {}
+                error: service_unavailable
+                code: SERVICE_UNAVAILABLE
                 message: The service is temporarily unavailable. Please try again shortly.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
   /splits/admin/unpause-distributions:
@@ -2054,7 +2168,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: UNAUTHORIZED
+                details: {}
+                error: unauthorized
+                code: UNAUTHORIZED
                 message: Missing or invalid bearer token / admin API key.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "500":
@@ -2064,7 +2180,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: INTERNAL_ERROR
+                details: {}
+                error: internal_error
+                code: INTERNAL_ERROR
                 message: An unexpected error occurred. Please try again later.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "503":
@@ -2074,7 +2192,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: SERVICE_UNAVAILABLE
+                details: {}
+                error: service_unavailable
+                code: SERVICE_UNAVAILABLE
                 message: The service is temporarily unavailable. Please try again shortly.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
   /splits/admin/status:
@@ -2100,7 +2220,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: UNAUTHORIZED
+                details: {}
+                error: unauthorized
+                code: UNAUTHORIZED
                 message: Missing or invalid bearer token / admin API key.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "500":
@@ -2110,7 +2232,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: INTERNAL_ERROR
+                details: {}
+                error: internal_error
+                code: INTERNAL_ERROR
                 message: An unexpected error occurred. Please try again later.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
   /splits/admin/is-token-allowed:
@@ -2151,7 +2275,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: UNAUTHORIZED
+                details: {}
+                error: unauthorized
+                code: UNAUTHORIZED
                 message: Missing or invalid bearer token / admin API key.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "500":
@@ -2161,7 +2287,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: INTERNAL_ERROR
+                details: {}
+                error: internal_error
+                code: INTERNAL_ERROR
                 message: An unexpected error occurred. Please try again later.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
   /splits/admin/token-count:
@@ -2187,7 +2315,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: UNAUTHORIZED
+                details: {}
+                error: unauthorized
+                code: UNAUTHORIZED
                 message: Missing or invalid bearer token / admin API key.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "500":
@@ -2197,7 +2327,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: INTERNAL_ERROR
+                details: {}
+                error: internal_error
+                code: INTERNAL_ERROR
                 message: An unexpected error occurred. Please try again later.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
   /splits/admin/unallocated:
@@ -2238,7 +2370,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: UNAUTHORIZED
+                details: {}
+                error: unauthorized
+                code: UNAUTHORIZED
                 message: Missing or invalid bearer token / admin API key.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "500":
@@ -2248,7 +2382,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: INTERNAL_ERROR
+                details: {}
+                error: internal_error
+                code: INTERNAL_ERROR
                 message: An unexpected error occurred. Please try again later.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
   /splits/admin/withdraw-unallocated:
@@ -2313,7 +2449,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: UNAUTHORIZED
+                details: {}
+                error: unauthorized
+                code: UNAUTHORIZED
                 message: Missing or invalid bearer token / admin API key.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "500":
@@ -2323,7 +2461,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: INTERNAL_ERROR
+                details: {}
+                error: internal_error
+                code: INTERNAL_ERROR
                 message: An unexpected error occurred. Please try again later.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "503":
@@ -2333,7 +2473,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: SERVICE_UNAVAILABLE
+                details: {}
+                error: service_unavailable
+                code: SERVICE_UNAVAILABLE
                 message: The service is temporarily unavailable. Please try again shortly.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
   /splits/admin/cache-stats:
@@ -2358,7 +2500,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: UNAUTHORIZED
+                details: {}
+                error: unauthorized
+                code: UNAUTHORIZED
                 message: Missing or invalid bearer token / admin API key.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "500":
@@ -2368,7 +2512,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: INTERNAL_ERROR
+                details: {}
+                error: internal_error
+                code: INTERNAL_ERROR
                 message: An unexpected error occurred. Please try again later.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
   /users/register:
@@ -2400,6 +2546,10 @@ paths:
                     - customer
                     - driver
                   default: customer
+                password:
+                  type: string
+                  minLength: 8
+                  maxLength: 72
               required:
                 - walletAddress
       responses:
@@ -2451,7 +2601,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: CONFLICT
+                details: {}
+                error: conflict
+                code: CONFLICT
                 message: A project with ID "afrobeats_001" already exists.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "500":
@@ -2461,7 +2613,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: INTERNAL_ERROR
+                details: {}
+                error: internal_error
+                code: INTERNAL_ERROR
                 message: An unexpected error occurred. Please try again later.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
   /users/login:
@@ -2536,11 +2690,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
+                details: {}
                 error: unauthorized
                 code: UNAUTHORIZED
                 message: Unable to sign in. Check your details or try again later.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
-                details: {}
         "500":
           description: Internal server error
           content:
@@ -2548,7 +2702,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: INTERNAL_ERROR
+                details: {}
+                error: internal_error
+                code: INTERNAL_ERROR
                 message: An unexpected error occurred. Please try again later.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
   /users/me:
@@ -2602,7 +2758,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: UNAUTHORIZED
+                details: {}
+                error: unauthorized
+                code: UNAUTHORIZED
                 message: Missing or invalid bearer token / admin API key.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "404":
@@ -2612,7 +2770,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: NOT_FOUND
+                details: {}
+                error: not_found
+                code: NOT_FOUND
                 message: Project afrobeats_001 does not exist.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "500":
@@ -2622,7 +2782,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: INTERNAL_ERROR
+                details: {}
+                error: internal_error
+                code: INTERNAL_ERROR
                 message: An unexpected error occurred. Please try again later.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
     patch:
@@ -2694,7 +2856,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: UNAUTHORIZED
+                details: {}
+                error: unauthorized
+                code: UNAUTHORIZED
                 message: Missing or invalid bearer token / admin API key.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "404":
@@ -2704,7 +2868,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: NOT_FOUND
+                details: {}
+                error: not_found
+                code: NOT_FOUND
                 message: Project afrobeats_001 does not exist.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "500":
@@ -2714,7 +2880,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: INTERNAL_ERROR
+                details: {}
+                error: internal_error
+                code: INTERNAL_ERROR
                 message: An unexpected error occurred. Please try again later.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
     delete:
@@ -2749,7 +2917,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: UNAUTHORIZED
+                details: {}
+                error: unauthorized
+                code: UNAUTHORIZED
                 message: Missing or invalid bearer token / admin API key.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "404":
@@ -2759,7 +2929,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: NOT_FOUND
+                details: {}
+                error: not_found
+                code: NOT_FOUND
                 message: Project afrobeats_001 does not exist.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "500":
@@ -2769,7 +2941,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: INTERNAL_ERROR
+                details: {}
+                error: internal_error
+                code: INTERNAL_ERROR
                 message: An unexpected error occurred. Please try again later.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
   /users/{walletAddress}:
@@ -2834,7 +3008,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: NOT_FOUND
+                details: {}
+                error: not_found
+                code: NOT_FOUND
                 message: Project afrobeats_001 does not exist.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "500":
@@ -2844,7 +3020,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: INTERNAL_ERROR
+                details: {}
+                error: internal_error
+                code: INTERNAL_ERROR
                 message: An unexpected error occurred. Please try again later.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
   /transactions/export:
@@ -2984,7 +3162,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: UNAUTHORIZED
+                details: {}
+                error: unauthorized
+                code: UNAUTHORIZED
                 message: Missing or invalid bearer token / admin API key.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "500":
@@ -2994,7 +3174,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: INTERNAL_ERROR
+                details: {}
+                error: internal_error
+                code: INTERNAL_ERROR
                 message: An unexpected error occurred. Please try again later.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
   /transactions/history:
@@ -3134,7 +3316,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: INTERNAL_ERROR
+                details: {}
+                error: internal_error
+                code: INTERNAL_ERROR
                 message: An unexpected error occurred. Please try again later.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
   /transactions/{txHash}:
@@ -3200,7 +3384,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: NOT_FOUND
+                details: {}
+                error: not_found
+                code: NOT_FOUND
                 message: Project afrobeats_001 does not exist.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "500":
@@ -3210,7 +3396,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: INTERNAL_ERROR
+                details: {}
+                error: internal_error
+                code: INTERNAL_ERROR
                 message: An unexpected error occurred. Please try again later.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
   /transactions/receipt/{txHash}:
@@ -3278,7 +3466,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: NOT_FOUND
+                details: {}
+                error: not_found
+                code: NOT_FOUND
                 message: Project afrobeats_001 does not exist.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
         "500":
@@ -3288,7 +3478,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: INTERNAL_ERROR
+                details: {}
+                error: internal_error
+                code: INTERNAL_ERROR
                 message: An unexpected error occurred. Please try again later.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
   /transactions/recipient/{walletAddress}:
@@ -3406,7 +3598,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: INTERNAL_ERROR
+                details: {}
+                error: internal_error
+                code: INTERNAL_ERROR
                 message: An unexpected error occurred. Please try again later.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
   /health:
@@ -3512,7 +3706,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: INTERNAL_ERROR
+                details: {}
+                error: internal_error
+                code: INTERNAL_ERROR
                 message: An unexpected error occurred. Please try again later.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
   /ops/backfill:
@@ -3544,7 +3740,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
               example:
-                error: INTERNAL_ERROR
+                details: {}
+                error: internal_error
+                code: INTERNAL_ERROR
                 message: An unexpected error occurred. Please try again later.
                 requestId: b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d
   /:

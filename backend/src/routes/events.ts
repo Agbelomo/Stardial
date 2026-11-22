@@ -1,10 +1,17 @@
+import { sendErrorResponse } from "../lib/api-error.js";
 import { Router, Request, Response } from "express";
 import { getSseEventBus, getSseEventName } from "../services/SseEventBus.js";
 import { getEventBus, TRANSACTION_CONFIRMED } from "../services/EventBus.js";
 import { logger } from "../services/logger.js";
-import { AppError, ErrorCode, ErrorType } from "../lib/errors.js";
+import { ErrorCode } from "../lib/errors.js";
 import { incrementSseConnections, recordSseDisconnect } from "../services/metrics.js";
 import { isShuttingDown } from "./health.js";
+import { validateRequest } from "../middleware/validate.js";
+import {
+  eventStreamQuerySchema,
+  eventTransactionParamsSchema,
+  noQuerySchema,
+} from "../schemas/api-input.schemas.js";
 
 // Heartbeat cadence for the path-based transaction stream. A comment line every
 // 15s keeps intermediary proxies from closing an otherwise-idle connection.
@@ -92,7 +99,7 @@ export function getActiveSseConnectionCount(): number {
  */
 function rejectIfShuttingDown(res: Response): boolean {
   if (!isShuttingDown()) return false;
-  res.status(503).json({
+  sendErrorResponse(res, 503, {
     error: "shutting_down",
     message: "Service is shutting down and is not accepting new event streams.",
     requestId: res.locals.requestId,
@@ -123,12 +130,13 @@ function removeSubscription(subscription: EventSubscription) {
 async function handleEventStream(req: Request, res: Response) {
   if (rejectIfShuttingDown(res)) return;
 
-  const txHash = String(req.query.txHash ?? "").trim();
+  // Parsed and constrained by eventStreamQuerySchema in the shared middleware.
+  const txHash = (res.locals.validatedQuery as { txHash: string }).txHash;
   const requestId = res.locals.requestId as string | undefined;
 
   // Issue #1529: Global SSE connection limit check
   if (activeSseResponses.size >= MAX_GLOBAL_SSE_CONNECTIONS) {
-    res.status(429).json({
+    sendErrorResponse(res, 429, {
       error: "too_many_global_sse_connections",
       code: ErrorCode.RESOURCE_LIMIT_EXCEEDED,
       message: "Server has reached the maximum allowed concurrent SSE stream connections.",
@@ -138,17 +146,9 @@ async function handleEventStream(req: Request, res: Response) {
     return;
   }
 
-  if (!txHash) {
-    throw new AppError(
-      ErrorType.VALIDATION,
-      ErrorCode.VALIDATION_ERROR,
-      "Query parameter txHash is required for /events SSE subscriptions."
-    );
-  }
-
   const currentCount = getSubscriptionCount(txHash);
   if (currentCount >= MAX_LISTENERS_PER_TXHASH) {
-    res.status(429).json({
+    sendErrorResponse(res, 429, {
       error: "too_many_event_listeners",
       code: ErrorCode.RESOURCE_LIMIT_EXCEEDED,
       message: "Too many event stream subscribers for this transaction.",
@@ -227,16 +227,9 @@ async function handleEventStream(req: Request, res: Response) {
 function handleTransactionStream(req: Request, res: Response) {
   if (rejectIfShuttingDown(res)) return;
 
-  const txHash = String(req.params.txHash ?? "").trim();
+  // Parsed and constrained by eventTransactionParamsSchema in the shared middleware.
+  const txHash = req.params.txHash;
   const requestId = res.locals.requestId as string | undefined;
-
-  if (!txHash) {
-    throw new AppError(
-      ErrorType.VALIDATION,
-      ErrorCode.VALIDATION_ERROR,
-      "Path parameter txHash is required for /events/transactions subscriptions."
-    );
-  }
 
   createSseHeaders(res);
 
@@ -278,5 +271,9 @@ function handleTransactionStream(req: Request, res: Response) {
   logger.info("Transaction SSE subscription opened", { txHash, requestId });
 }
 
-eventsRouter.get("/", handleEventStream);
-eventsRouter.get("/transactions/:txHash", handleTransactionStream);
+eventsRouter.get("/", validateRequest({ query: eventStreamQuerySchema }), handleEventStream);
+eventsRouter.get(
+  "/transactions/:txHash",
+  validateRequest({ params: eventTransactionParamsSchema, query: noQuerySchema }),
+  handleTransactionStream
+);

@@ -1,3 +1,4 @@
+import { sendErrorResponse } from "../lib/api-error.js";
 import type { Request, Response, NextFunction } from "express";
 import { verifyToken } from "../services/jwt.js";
 import { getSessionVersion } from "../services/session-revocation.js";
@@ -37,13 +38,13 @@ export async function authJwtMiddleware(req: Request, res: Response, next: NextF
 
   if (!header || !header.toLowerCase().startsWith(BEARER_PREFIX)) {
     logAuthEvent(res, "session_rejected", "failure", { reason: "MISSING_TOKEN" });
-    return res.status(401).json({ error: "unauthorized", code: "UNAUTHORIZED", message: "Missing or invalid token.", requestId, details: {} });
+    return sendErrorResponse(res, 401, { error: "unauthorized", code: "UNAUTHORIZED", message: "Missing or invalid token.", requestId, details: {} });
   }
 
   const token = header.slice(BEARER_PREFIX.length).trim();
   if (!token) {
     logAuthEvent(res, "session_rejected", "failure", { reason: "MISSING_TOKEN" });
-    return res.status(401).json({ error: "unauthorized", code: "UNAUTHORIZED", message: "Missing or invalid token.", requestId, details: {} });
+    return sendErrorResponse(res, 401, { error: "unauthorized", code: "UNAUTHORIZED", message: "Missing or invalid token.", requestId, details: {} });
   }
 
   let payload: unknown;
@@ -56,12 +57,12 @@ export async function authJwtMiddleware(req: Request, res: Response, next: NextF
     payload = verifyToken(token);
   } catch {
     logAuthEvent(res, "session_rejected", "failure", { reason: "INVALID_TOKEN" });
-    return res.status(401).json({ error: "unauthorized", code: "UNAUTHORIZED", message: "Token expired or invalid.", requestId, details: {} });
+    return sendErrorResponse(res, 401, { error: "unauthorized", code: "UNAUTHORIZED", message: "Token expired or invalid.", requestId, details: {} });
   }
 
   if (!isAuthenticatedUser(payload)) {
     logAuthEvent(res, "session_rejected", "failure", { reason: "INVALID_TOKEN" });
-    return res.status(401).json({ error: "unauthorized", code: "UNAUTHORIZED", message: "Token expired or invalid.", requestId, details: {} });
+    return sendErrorResponse(res, 401, { error: "unauthorized", code: "UNAUTHORIZED", message: "Token expired or invalid.", requestId, details: {} });
   }
 
   // Session revocation (#1446): a token is only valid while its `sv` claim
@@ -77,7 +78,7 @@ export async function authJwtMiddleware(req: Request, res: Response, next: NextF
   const tokenVersion = typeof payload.sv === "number" ? payload.sv : 0;
   if (currentVersion !== null && tokenVersion !== currentVersion) {
     logAuthEvent(res, "session_rejected", "failure", { reason: "SESSION_REVOKED" });
-    return res.status(401).json({ error: "unauthorized", code: "SESSION_REVOKED", message: "Session has been revoked. Please log in again.", requestId, details: {} });
+    return sendErrorResponse(res, 401, { error: "unauthorized", code: "SESSION_REVOKED", message: "Session has been revoked. Please log in again.", requestId, details: {} });
   }
 
   req.user = { walletAddress: payload.walletAddress, sessionVersion: tokenVersion };

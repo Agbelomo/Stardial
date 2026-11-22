@@ -1,3 +1,4 @@
+import { sendErrorResponse } from "../lib/api-error.js";
 import { Router, type NextFunction, type Response } from "express";
 import { getEnvDiagnostics } from "../config/env.js";
 import { getDataSource } from "../services/database.js";
@@ -67,7 +68,7 @@ healthRouter.get("/live", (_req, res) => {
  */
 healthRouter.get("/startup", (_req, res) => {
   if (!startupComplete) {
-    res.status(503).json({ status: "starting" });
+    sendErrorResponse(res, 503, { status: "starting", error: "starting" });
     return;
   }
   res.json({ status: "started" });
@@ -234,7 +235,7 @@ async function handleReadiness(_req: unknown, res: Response, _next: NextFunction
   };
 
   if (shuttingDown) {
-    res.status(503).json({
+    sendErrorResponse(res, 503, {
       status: "not_ready",
       error: "shutting_down",
       message: "Service received a shutdown signal and is no longer accepting traffic.",
@@ -246,7 +247,7 @@ async function handleReadiness(_req: unknown, res: Response, _next: NextFunction
   }
 
   if (!startupComplete) {
-    res.status(503).json({
+    sendErrorResponse(res, 503, {
       status: "not_ready",
       error: "starting",
       message: "Service startup has not completed.",
@@ -260,7 +261,7 @@ async function handleReadiness(_req: unknown, res: Response, _next: NextFunction
   const envDiagnostics = getEnvDiagnostics();
   if (!envDiagnostics.ok) {
     components.env = { ok: false };
-    res.status(503).json({
+    sendErrorResponse(res, 503, {
       status: "not_ready",
       error: "missing_config",
       message: "Required environment variables are missing or malformed.",
@@ -301,7 +302,7 @@ async function handleReadiness(_req: unknown, res: Response, _next: NextFunction
         status: "down",
         message: redactSecrets(isTimeout ? `timeout: ${message}` : `query_failed: ${message}`)
       };
-      res.status(503).json({
+      sendErrorResponse(res, 503, {
         status: "not_ready",
         error: "database_unavailable",
         message: isTimeout
@@ -316,7 +317,7 @@ async function handleReadiness(_req: unknown, res: Response, _next: NextFunction
   } catch (dbError) {
     const message = dbError instanceof Error ? dbError.message : "Database connection is not available.";
     components.db = { status: "down", message: redactSecrets(message) };
-    res.status(503).json({
+    sendErrorResponse(res, 503, {
       status: "not_ready",
       error: "database_unavailable",
       message: "Database connection is not available.",
@@ -362,7 +363,7 @@ async function handleReadiness(_req: unknown, res: Response, _next: NextFunction
         };
 
     if (!soroban.rpc.ok || !soroban.contract.ok) {
-      res.status(503).json({
+      sendErrorResponse(res, 503, {
         status: "not_ready",
         error: !soroban.rpc.ok ? "rpc_unavailable" : "contract_unreachable",
         message: "Soroban RPC or contract simulation is not ready.",
@@ -383,7 +384,7 @@ async function handleReadiness(_req: unknown, res: Response, _next: NextFunction
       status: "unknown",
       message: "not_checked: the Soroban RPC check failed, so the contract simulation was skipped"
     };
-    res.status(503).json({
+    sendErrorResponse(res, 503, {
       status: "not_ready",
       error: "rpc_unavailable",
       message: isTimeout
