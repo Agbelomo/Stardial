@@ -210,7 +210,7 @@ transactionsRouter.get("/export", authJwtMiddleware, async (req: Request, res: R
     logger.info("Exporting transaction history", { recipient, format, startDate, endDate, status });
 
     if (format === "json") {
-      const { records, total } = await payoutHistoryService.getPayoutsWithCount({
+      const page = await payoutHistoryService.getPayoutsPage({
         recipient,
         startDate,
         endDate,
@@ -218,7 +218,11 @@ transactionsRouter.get("/export", authJwtMiddleware, async (req: Request, res: R
         limit,
         offset,
       });
-      return res.status(200).json({ transactions: records, total, limit, offset });
+      return res.status(200).json({
+        transactions: page.records,
+        total: page.total,
+        ...buildPageMetadata(page, limit, offset),
+      });
     }
 
     // format === "csv": stream the full authorized result set.

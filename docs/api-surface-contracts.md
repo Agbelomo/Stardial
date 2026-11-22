@@ -91,6 +91,19 @@ The response shape is documented in `docs/openapi.yaml`; the codec lives in
 `backend/src/__tests__/keyset-cursor.test.ts` and
 `backend/src/__tests__/transactions-pagination.test.ts`.
 
+`GET /transactions/export?format=json` uses the same transaction page metadata
+(`total`, `limit`, `offset`, `hasMore`, and `nextCursor`). The CSV export is a
+stream and does not include pagination metadata.
+
+## Split project pagination contract
+
+`GET /splits` returns a `projects` array with the total on-chain project count,
+the effective `start` offset and `limit`, `hasMore`, and a nullable
+`nextCursor`. The cursor encodes the offset after the last returned project;
+when a page is short, the next offset advances by the number of returned
+projects rather than the requested page size. The response shape is documented
+in `docs/openapi.yaml`.
+
 ## Per-route rate limits
 
 Route groups have deliberately distinct budgets (auth, admin, read, write,

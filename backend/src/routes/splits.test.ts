@@ -327,6 +327,9 @@ describe("splits routes integration", () => {
     expect(response.body).toMatchObject({
       projects: [{ projectId: "project_1" }, { projectId: "project_2" }],
       total: 5,
+      start: 0,
+      limit: 10,
+      hasMore: true,
     });
 
     expect(getAccountMock).toHaveBeenCalledWith("GTESTSIMULATOR");
@@ -352,8 +355,11 @@ describe("splits routes integration", () => {
     expect(response.body).toMatchObject({
       projects: [{ projectId: "project_3" }, { projectId: "project_4" }],
       total: 10,
+      start: 2,
+      limit: 2,
+      hasMore: true,
     });
-    expect(response.body.nextCursor).toBeTruthy();
+    expect(response.body.nextCursor).toBe(Buffer.from("4").toString("base64"));
   });
 
   it("cursor pagination returns null nextCursor on last page", async () => {
@@ -374,6 +380,11 @@ describe("splits routes integration", () => {
     const response = await request(app).get(`/splits?cursor=${cursor}&limit=5`).expect(200);
 
     expect(response.body.projects).toHaveLength(1);
+    expect(response.body).toMatchObject({
+      start: 9,
+      limit: 5,
+      hasMore: false,
+    });
     expect(response.body.nextCursor).toBeNull();
   });
 
