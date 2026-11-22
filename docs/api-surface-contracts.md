@@ -135,6 +135,20 @@ The response shape is documented in `docs/openapi.yaml`; the codec lives in
 `backend/src/__tests__/keyset-cursor.test.ts` and
 `backend/src/__tests__/transactions-pagination.test.ts`.
 
+## Pending invitation pagination
+
+`GET /auth/email/invitations/pending` is paged so a long-lived registry cannot
+return an unbounded response:
+
+- **Order.** Newest first by `(createdAt DESC, id DESC)`, so equal timestamps
+  still page deterministically.
+- **Page size.** `limit` defaults to **20** and is capped at **100**; a larger
+  value is a `400`.
+- **Offset.** `offset` defaults to `0`. `count` is the total number of matching
+  pending invitations, not the size of the current page.
+- **More pages.** `hasMore` is true when another page follows. `count`, `limit`,
+  `offset` and `hasMore` are returned alongside `invitations`.
+
 ## Per-route rate limits
 
 Route groups have deliberately distinct budgets (auth, admin, read, write,

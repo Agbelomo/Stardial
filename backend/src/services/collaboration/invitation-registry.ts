@@ -341,3 +341,58 @@ export function listPendingInvitations(filter?: {
     return true;
   });
 }
+
+/** Default number of pending invitations returned by `getPendingInvitationsPage`. */
+export const DEFAULT_PENDING_INVITATIONS_PAGE_SIZE = 20;
+
+/** Hard ceiling for one pending-invitations page, independent of the caller. */
+export const MAX_PENDING_INVITATIONS_PAGE_SIZE = 100;
+
+export interface PendingInvitationsPage {
+  items: InvitationRecord[];
+  /** Total pending invitations matching the filters, ignoring the page window. */
+  total: number;
+  limit: number;
+  offset: number;
+  /** True when at least one more invitation follows this page. */
+  hasMore: boolean;
+}
+
+/**
+ * One page of pending invitations, newest first.
+ *
+ * `listPendingInvitations` would return the whole registry, which is unbounded
+ * as invitations accumulate. The page sorts by `(createdAt DESC, id DESC)` so
+ * `offset` stays stable for invitations created in the same millisecond.
+ */
+export function getPendingInvitationsPage(options?: {
+  projectId?: string;
+  inviterWalletAddress?: string;
+  now?: Date;
+  limit?: number;
+  offset?: number;
+}): PendingInvitationsPage {
+  const limit = Math.min(
+    Math.max(Math.trunc(options?.limit ?? DEFAULT_PENDING_INVITATIONS_PAGE_SIZE), 1),
+    MAX_PENDING_INVITATIONS_PAGE_SIZE,
+  );
+  const offset = Math.max(Math.trunc(options?.offset ?? 0), 0);
+
+  const matching = listPendingInvitations({
+    projectId: options?.projectId,
+    inviterWalletAddress: options?.inviterWalletAddress,
+    now: options?.now,
+  }).sort((a, b) => {
+    const byCreatedAt = b.createdAt.localeCompare(a.createdAt);
+    return byCreatedAt !== 0 ? byCreatedAt : b.id.localeCompare(a.id);
+  });
+
+  const items = matching.slice(offset, offset + limit);
+  return {
+    items,
+    total: matching.length,
+    limit,
+    offset,
+    hasMore: offset + items.length < matching.length,
+  };
+}

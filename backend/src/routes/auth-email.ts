@@ -11,12 +11,14 @@ import {
 import {
   acceptInvitationByTokenJti,
   cancelInvitation,
-  listPendingInvitations,
+  DEFAULT_PENDING_INVITATIONS_PAGE_SIZE,
+  getPendingInvitationsPage,
+  MAX_PENDING_INVITATIONS_PAGE_SIZE,
   registerInvitation,
 } from "../services/collaboration/invitation-registry.js";
 import { createHash } from "node:crypto";
 import { IsNull } from "typeorm";
-import { getMaxSessionVersionForEmail, revokeSessionsForEmail } from "../services/session-revocation.js";
+import { getMaxSessionVersionForEmail } from "../services/session-revocation.js";
 import { verificationResendCooldown } from "../services/verification-resend-cooldown.js";
 import { logAuthEvent } from "../services/auth-events.js";
 import {
@@ -340,25 +342,40 @@ authEmailRouter.post("/invitations/accept", async (req: Request, res: Response, 
  * List the invitations still awaiting a response, so an owner can find the one
  * they need to cancel (#1299). Invitation ids are opaque, so without this the
  * cancel endpoint is only reachable if the caller already stored the id.
+ *
+ * Paged with `limit`/`offset`, newest first. `limit` defaults to 20 and is
+ * capped at 100; `offset` defaults to 0. `count` is the total number of
+ * matching pending invitations, not just the size of this page.
  */
+const pendingInvitationsQuerySchema = z.object({
+  projectId: z.string().min(1).optional(),
+  inviterWalletAddress: z.string().min(1).optional(),
+  limit: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(MAX_PENDING_INVITATIONS_PAGE_SIZE)
+    .default(DEFAULT_PENDING_INVITATIONS_PAGE_SIZE),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
 authEmailRouter.get("/invitations/pending", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const filterSchema = z.object({
-      projectId: z.string().min(1).optional(),
-      inviterWalletAddress: z.string().min(1).optional(),
-    });
-    const filter = filterSchema.parse(req.query);
-    const pending = listPendingInvitations(filter);
+    const { limit, offset, ...filter } = pendingInvitationsQuerySchema.parse(req.query);
+    const page = getPendingInvitationsPage({ ...filter, limit, offset });
 
     return res.status(200).json({
-      count: pending.length,
-      invitations: pending.map((record) => ({
+      count: page.total,
+      invitations: page.items.map((record) => ({
         id: record.id,
         email: record.email,
         projectId: record.projectId ?? null,
         inviterWalletAddress: record.inviterWalletAddress ?? null,
         createdAt: record.createdAt,
       })),
+      limit: page.limit,
+      offset: page.offset,
+      hasMore: page.hasMore,
     });
   } catch (error) {
     return next(error);
