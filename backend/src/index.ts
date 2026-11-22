@@ -294,9 +294,17 @@ if (process.env.NODE_ENV !== "test") {
             logger.error("Error during server close", { error: err });
             process.exit(1);
           }
+          clearInterval(idleConnectionCloser);
           logger.info("Server closed cleanly");
           process.exit(0);
         });
+        // Readiness polling and other clients may hold keep-alive sockets
+        // that only become idle after server.close() is called. Close them as
+        // they drain so shutdown does not stall until the force-exit timeout;
+        // in-flight requests still finish normally.
+        server.closeIdleConnections();
+        const idleConnectionCloser = setInterval(() => server.closeIdleConnections(), 100);
+        idleConnectionCloser.unref();
         const forceTimeoutMs = Number(process.env.SHUTDOWN_FORCE_TIMEOUT_MS ?? 10_000);
         setTimeout(() => {
           logger.warn("Force exiting after timeout");

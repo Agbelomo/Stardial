@@ -144,6 +144,32 @@ beforeEach(() => {
   // The read cache is module state shared by every test in this file; a stale
   // list page would otherwise answer a request without consuming its mock.
   invalidateCacheByPrefix("list_projects:");
+
+  // Default contract-read responses. Routes read project state and balances
+  // before building XDR; returning a shaped retval per method keeps those
+  // reads decodable. Tests override this when they assert specific reads.
+  simulateTransactionMock.mockImplementation(async (transaction: unknown) => {
+    const method = (transaction as { preparedOperation?: { method?: string } })
+      .preparedOperation?.method;
+    switch (method) {
+      case "project_exists":
+      case "is_distributions_paused":
+        return { result: { retval: false } };
+      case "get_project":
+        return {
+          result: {
+            retval: { owner: "GOWNER", token: "GTOKEN", locked: false, collaborators: [] },
+          },
+        };
+      case "get_balance":
+      case "get_unallocated_balance":
+        return { result: { retval: 0n } };
+      case "get_project_count":
+        return { result: { retval: 0 } };
+      default:
+        return { result: { retval: 0n } };
+    }
+  });
 });
 
 describe("splits routes integration", () => {
@@ -780,8 +806,14 @@ describe("splits routes integration", () => {
  */
 function mockOnChainProjectOwner(owner: string) {
   invalidateCacheByPrefix("project:");
-  simulateTransactionMock.mockResolvedValue({
-    result: { retval: { owner, locked: false, collaborators: [] } },
+  simulateTransactionMock.mockImplementation(async (transaction: unknown) => {
+    const method = (transaction as { preparedOperation?: { method?: string } })
+      .preparedOperation?.method;
+    if (method === "get_balance") return { result: { retval: 0n } };
+    if (method === "get_project") {
+      return { result: { retval: { owner, locked: false, collaborators: [] } } };
+    }
+    return { result: { retval: false } };
   });
 }
 
@@ -1077,7 +1109,8 @@ describe("Issue #1092: project ownership validation on owner-gated mutations", (
 
     it(`${mutation.name} returns 404 when the project does not exist`, async () => {
       invalidateCacheByPrefix("project:");
-      simulateTransactionMock.mockResolvedValue({ result: undefined });
+      // An on-chain error means the read produced no project state.
+      simulateTransactionMock.mockResolvedValue({ error: "project not found" });
 
       const response = await mutation.send(createApp(), OWNER).expect(404);
 
@@ -1093,8 +1126,14 @@ describe("Issue #1092: project ownership validation on owner-gated mutations", (
     await request(app).get("/splits/proj_own").expect(200);
 
     // Ownership transferred on-chain; the cache still says OWNER.
-    simulateTransactionMock.mockResolvedValue({
-      result: { retval: { owner: INTRUDER, locked: false, collaborators: [] } },
+    simulateTransactionMock.mockImplementation(async (transaction: unknown) => {
+      const method = (transaction as { preparedOperation?: { method?: string } })
+        .preparedOperation?.method;
+      if (method === "get_balance") return { result: { retval: 0n } };
+      if (method === "get_project") {
+        return { result: { retval: { owner: INTRUDER, locked: false, collaborators: [] } } };
+      }
+      return { result: { retval: false } };
     });
 
     const response = await request(app)
@@ -1107,8 +1146,18 @@ describe("Issue #1092: project ownership validation on owner-gated mutations", (
 
   it("does not gate permissionless actions (deposit sender is not required to be the owner)", async () => {
     invalidateCacheByPrefix("project:");
-    simulateTransactionMock.mockResolvedValue({
-      result: { retval: { owner: OWNER, token: "GTOKEN", locked: false, collaborators: [] } },
+    simulateTransactionMock.mockImplementation(async (transaction: unknown) => {
+      const method = (transaction as { preparedOperation?: { method?: string } })
+        .preparedOperation?.method;
+      if (method === "get_balance") return { result: { retval: 0n } };
+      if (method === "get_project") {
+        return {
+          result: {
+            retval: { owner: OWNER, token: "GTOKEN", locked: false, collaborators: [] },
+          },
+        };
+      }
+      return { result: { retval: false } };
     });
 
     await request(createApp())
@@ -1387,6 +1436,8 @@ describe("POST /splits idempotency (Issue #888)", () => {
       .send(payload)
       .expect(200);
 
+    const accountCallsAfterFirst = getAccountMock.mock.calls.length;
+
     const second = await request(app)
       .post("/splits")
       .set("Idempotency-Key", "replay-key")
@@ -1397,7 +1448,7 @@ describe("POST /splits idempotency (Issue #888)", () => {
     expect(second.headers["idempotency-replayed"]).toBe("true");
     // The underlying build only ran once; the replay was served from the store.
     expect(prepareTransactionMock).toHaveBeenCalledTimes(1);
-    expect(getAccountMock).toHaveBeenCalledTimes(1);
+    expect(getAccountMock.mock.calls.length).toBe(accountCallsAfterFirst);
   });
 
   it("rejects a replay with the same key but a different payload with a stable 409 conflict", async () => {

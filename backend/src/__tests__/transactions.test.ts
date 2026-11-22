@@ -49,6 +49,19 @@ vi.mock("../services/database.js", () => ({
   closeDatabase: async () => {}
 }));
 
+// History routes require a bearer token. These tests cover the query contract,
+// not authentication, so act as an already-authenticated wallet.
+vi.mock("../middleware/auth-jwt.js", () => ({
+  authJwtMiddleware: (
+    req: { user?: { walletAddress: string } },
+    _res: unknown,
+    next: () => void
+  ) => {
+    req.user = { walletAddress: "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF" };
+    next();
+  }
+}));
+
 import { app } from "../index.js";
 
 
@@ -133,9 +146,16 @@ describe("Transaction History API", () => {
   describe("GET /transactions/:txHash", () => {
     it("should return 404 for non-existent transaction", async () => {
       const response = await request(app)
-        .get("/transactions/nonexistenthash123");
+        .get(`/transactions/${"f".repeat(64)}`);
 
       expect(response.status).toBe(404);
+    });
+
+    it("rejects a malformed transaction hash with 400", async () => {
+      const response = await request(app)
+        .get("/transactions/nonexistenthash123");
+
+      expect(response.status).toBe(400);
     });
 
     it("should reject empty transaction hash", async () => {

@@ -186,6 +186,29 @@ function sendValidationError(
   });
 }
 
+/**
+ * Rejects raw HTML/XML markup in user-supplied text fields. The schemas
+ * sanitize markup for storage, but the API boundary should not accept
+ * executable markup at all: reflected-validation responses must never echo
+ * it, and downstream consumers should only ever see plain text.
+ */
+function containsHtmlMarkup(value: unknown): boolean {
+  return typeof value === "string" && /<\s*\/?\s*[a-z][^>]*>/i.test(value);
+}
+
+function bodyContainsHtmlMarkup(body: unknown): boolean {
+  if (!body || typeof body !== "object") return false;
+  return Object.values(body as Record<string, unknown>).some((value) => {
+    if (containsHtmlMarkup(value)) return true;
+    if (Array.isArray(value)) {
+      return value.some(
+        (item) => item !== null && typeof item === "object" && bodyContainsHtmlMarkup(item),
+      );
+    }
+    return false;
+  });
+}
+
 function sendRpcError(res: Response, requestId: string, message: string, status = 502) {
   return sendErrorResponse(res, status, {
     error: "rpc_error",
@@ -559,6 +582,10 @@ splitsRouter.post("/", idempotencyMiddleware(), async (req, res, next) => {
         "Invalid request payload.",
         parsed.error.flatten()
       );
+    }
+
+    if (bodyContainsHtmlMarkup(req.body)) {
+      return sendValidationError(res, requestId, "HTML markup is not allowed in text fields.");
     }
 
     try {

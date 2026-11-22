@@ -3,6 +3,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import http from "node:http";
 import net from "node:net";
 import path from "node:path";
+import { existsSync } from "node:fs";
 
 // This test spawns the real server process (not the in-process `app` export)
 // because `src/index.ts` only wires up SIGTERM/SIGINT handling, DB init, and
@@ -12,7 +13,12 @@ import path from "node:path";
 const shouldRun = process.env.CI === "true" && !!process.env.DATABASE_URL;
 const maybeDescribe = shouldRun ? describe : describe.skip;
 
-const TSX_BIN = path.join(process.cwd(), "node_modules", ".bin", "tsx");
+// npm workspaces hoist dev binaries to the repository root, so `backend/node_modules`
+// may not contain tsx even though `npm test -w backend` can run it.
+const localTsx = path.join(process.cwd(), "node_modules", ".bin", "tsx");
+const TSX_BIN = existsSync(localTsx)
+  ? localTsx
+  : path.resolve(process.cwd(), "..", "node_modules", ".bin", "tsx");
 const SHUTDOWN_FORCE_TIMEOUT_MS = 5_000;
 
 function getFreePort(): Promise<number> {
@@ -115,8 +121,12 @@ maybeDescribe("graceful shutdown (integration)", () => {
       });
 
       let stdout = "";
+      let stderr = "";
       child.stdout?.on("data", (chunk: Buffer) => {
         stdout += chunk.toString();
+      });
+      child.stderr?.on("data", (chunk: Buffer) => {
+        stderr += chunk.toString();
       });
 
       await waitForStartup(baseUrl, 20_000);
@@ -156,7 +166,7 @@ maybeDescribe("graceful shutdown (integration)", () => {
       // not left hanging until the client times out on its own.
       // (Awaited above via `sseClosed`; reaching this line proves it closed.)
 
-      expect(code).toBe(0);
+      expect(code, `child stdout:\n${stdout}\nchild stderr:\n${stderr}`).toBe(0);
       expect(stdout).toContain("Received SIGTERM");
       expect(stdout).toContain("Server closed cleanly");
     },

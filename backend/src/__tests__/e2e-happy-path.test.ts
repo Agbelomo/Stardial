@@ -13,11 +13,12 @@
  * triage quickly.
  */
 
-import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from "vitest";
 import request from "supertest";
 import { nativeToScVal } from "@stellar/stellar-sdk";
 
 import { app } from "../index.js";
+import { closeDatabase, initDatabase } from "../services/database.js";
 
 // ---------------------------------------------------------------------------
 // Hoisted mocks — must be created before vi.mock factories are invoked
@@ -121,6 +122,8 @@ vi.mock("../services/stellar.js", () => {
     // Cache stubs — no-ops so tests remain stateless
     getCached: () => undefined,
     setCached: () => undefined,
+    // Execute the loader directly; caching is irrelevant to this flow test.
+    getCachedOrFetch: async <T>(_key: string, fetcher: () => Promise<T>) => fetcher(),
     invalidateCache: () => undefined,
     invalidateCacheByPrefix: () => undefined,
     getCacheStats: () => ({ size: 0, keys: [] }),
@@ -174,16 +177,53 @@ function makeXdrMock(operation: string, xdrString: string) {
 // Suite
 // ---------------------------------------------------------------------------
 describe("E2E happy path: create → deposit → distribute → history", () => {
-  beforeAll(() => {
+  beforeAll(async () => {
     process.env.HORIZON_URL = "https://horizon.test";
     process.env.SOROBAN_RPC_URL = "https://soroban.test";
     process.env.SOROBAN_NETWORK_PASSPHRASE = "Test SDF Network";
     process.env.CONTRACT_ID = "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
     process.env.SIMULATOR_ACCOUNT = "GSIMULATOR";
+    // Create/deposit/distribute record project state and expiration.
+    await initDatabase();
+  });
+
+  afterAll(async () => {
+    await closeDatabase();
   });
 
   beforeEach(() => {
     vi.clearAllMocks();
+
+    // Contract reads used by create/deposit/distribute. The mocked
+    // TransactionBuilder exposes the method as `preparedOperation.method`.
+    simulateTransactionMock.mockImplementation(async (tx: unknown) => {
+      const method = (tx as { preparedOperation?: { method?: string } })
+        .preparedOperation?.method;
+
+      switch (method) {
+        case "project_exists":
+        case "is_distributions_paused":
+          return { result: { retval: nativeToScVal(false) } };
+        case "get_project":
+          return {
+            result: {
+              retval: nativeToScVal({
+                owner: OWNER,
+                token: TOKEN,
+                locked: false,
+                collaborators: [
+                  { address: COLLAB_A, alias: "Artist A", basisPoints: 6000 },
+                  { address: COLLAB_B, alias: "Artist B", basisPoints: 4000 }
+                ]
+              })
+            }
+          };
+        case "get_balance":
+          return { result: { retval: nativeToScVal(BigInt(DEPOSIT_AMOUNT)) } };
+        default:
+          return { result: { retval: nativeToScVal(false) } };
+      }
+    });
   });
 
   // ── Step 1: Create ──────────────────────────────────────────────────────
@@ -228,7 +268,7 @@ describe("E2E happy path: create → deposit → distribute → history", () => 
 
     const res = await request(app)
       .post(`/splits/${PROJECT_ID}/deposit`)
-      .send({ from: COLLAB_A, amount: DEPOSIT_AMOUNT });
+      .send({ from: COLLAB_A, amount: DEPOSIT_AMOUNT, token: TOKEN });
 
     expect(res.status, `[deposit] unexpected status: ${JSON.stringify(res.body)}`).toBe(200);
     expect(res.body.xdr).toBe("XDR_DEPOSIT_E2E");
@@ -370,7 +410,7 @@ describe("E2E happy path: create → deposit → distribute → history", () => 
     prepareTransactionMock.mockResolvedValue(makeXdrMock("deposit", "XDR_FULL_DEPOSIT"));
     const depositRes = await request(app)
       .post(`/splits/${PROJECT_ID}/deposit`)
-      .send({ from: COLLAB_A, amount: DEPOSIT_AMOUNT });
+      .send({ from: COLLAB_A, amount: DEPOSIT_AMOUNT, token: TOKEN });
     expect(depositRes.status, `[full-flow deposit] ${JSON.stringify(depositRes.body)}`).toBe(200);
 
     // Step 3: distribute

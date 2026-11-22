@@ -15,6 +15,24 @@ vi.mock("../services/database.js", () => ({
       findOne: findOneMock,
     }),
   }),
+  // Password reset confirms inside a transaction that bumps sessionVersion
+  // on every matching row. The fake reports one affected row.
+  withTransaction: async (callback: (runner: unknown) => Promise<unknown>) =>
+    callback({
+      manager: {
+        getRepository: () => ({
+          createQueryBuilder: () => {
+            const builder = {
+              update: () => builder,
+              set: () => builder,
+              where: () => builder,
+              execute: async () => ({ affected: 1 }),
+            };
+            return builder;
+          },
+        }),
+      },
+    }),
 }));
 
 vi.mock("../services/session-revocation.js", () => ({

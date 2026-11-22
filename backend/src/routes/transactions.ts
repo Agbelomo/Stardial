@@ -392,11 +392,13 @@ transactionsRouter.get("/:txHash", async (req: Request, res: Response, next: Nex
     const txHashParam = req.params.txHash;
     const txHash = Array.isArray(txHashParam) ? txHashParam[0] : txHashParam;
 
-    if (!txHash || txHash.length === 0) {
+    // A Stellar transaction hash is 64 hex characters. Reject malformed
+    // values before querying, instead of treating them as an unknown hash.
+    if (!txHash || !/^[a-fA-F0-9]{64}$/.test(txHash)) {
       throw new AppError(
         ErrorType.VALIDATION,
         ErrorCode.VALIDATION_ERROR,
-        "Transaction hash is required."
+        "Invalid transaction hash."
       );
     }
 
