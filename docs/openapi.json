@@ -604,7 +604,7 @@
                   "type": "string"
                 },
                 "basisPoints": {
-                  "type": "number"
+                  "type": "integer"
                 }
               },
               "required": [
@@ -616,11 +616,62 @@
             },
             "type": "array"
           },
+          "distributionRound": {
+            "type": "integer"
+          },
+          "expiresAt": {
+            "nullable": true,
+            "type": "string"
+          },
           "locked": {
             "type": "boolean"
           },
           "owner": {
             "type": "string"
+          },
+          "participantPaymentStatuses": {
+            "items": {
+              "properties": {
+                "address": {
+                  "type": "string"
+                },
+                "alias": {
+                  "nullable": true,
+                  "type": "string"
+                },
+                "basisPoints": {
+                  "type": "integer"
+                },
+                "lastUpdated": {
+                  "nullable": true,
+                  "type": "number"
+                },
+                "roundId": {
+                  "nullable": true,
+                  "type": "string"
+                },
+                "status": {
+                  "enum": [
+                    "paid",
+                    "pending",
+                    "failed",
+                    "unpaid"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "address",
+                "alias",
+                "basisPoints",
+                "status",
+                "roundId",
+                "lastUpdated"
+              ],
+              "type": "object"
+            },
+            "nullable": true,
+            "type": "array"
           },
           "projectId": {
             "type": "string"
@@ -644,10 +695,73 @@
           "projectType",
           "owner",
           "token",
-          "balance",
-          "totalDistributed",
           "locked",
-          "collaborators"
+          "totalDistributed",
+          "distributionRound",
+          "balance",
+          "expiresAt",
+          "collaborators",
+          "participantPaymentStatuses"
+        ],
+        "type": "object"
+      },
+      "ProjectList": {
+        "properties": {
+          "nextCursor": {
+            "nullable": true,
+            "type": "string"
+          },
+          "projects": {
+            "items": {
+              "properties": {
+                "distributionRound": {
+                  "type": "integer"
+                },
+                "locked": {
+                  "type": "boolean"
+                },
+                "owner": {
+                  "type": "string"
+                },
+                "projectId": {
+                  "type": "string"
+                },
+                "projectType": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "token": {
+                  "type": "string"
+                },
+                "totalDistributed": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "projectId",
+                "title",
+                "projectType",
+                "owner",
+                "token",
+                "locked",
+                "totalDistributed",
+                "distributionRound"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "projects",
+          "total",
+          "nextCursor"
         ],
         "type": "object"
       },
@@ -1190,10 +1304,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/Project"
-                  },
-                  "type": "array"
+                  "$ref": "#/components/schemas/ProjectList"
                 }
               }
             },

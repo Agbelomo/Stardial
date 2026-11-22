@@ -43,6 +43,10 @@ import {
   transactionReceiptSchema,
   transactionHistoryResponseSchema,
 } from "./schemas/transactions.schemas.js";
+import {
+  projectDetailSchema,
+  projectListResponseSchema,
+} from "./serializers/projects.serializer.js";
 
 const registry = new OpenAPIRegistry();
 
@@ -214,25 +218,19 @@ function standardErrorResponses(options: {
 // - `backend/` Express API scaffold
 // - `demo/` Static HTML flow prototype
 
+// Project response models are shared with the runtime serializers
+// (`serializers/projects.serializer.ts`), so the documented shape and the
+// emitted payload cannot drift apart.
+// The serializer schemas are created in another module, before
+// `extendZodWithOpenApi` patches this file's Zod instance, so wrap their
+// shapes here to register the components without duplicating the models.
 const ProjectSchema = registry.register(
   "Project",
-  z.object({
-    projectId: z.string(),
-    title: z.string(),
-    projectType: z.string(),
-    owner: z.string(),
-    token: z.string(),
-    balance: z.string(),
-    totalDistributed: z.string(),
-    locked: z.boolean(),
-    collaborators: z.array(
-      z.object({
-        address: z.string(),
-        alias: z.string(),
-        basisPoints: z.number(),
-      })
-    ),
-  })
+  z.object(projectDetailSchema.shape),
+);
+const ProjectListSchema = registry.register(
+  "ProjectList",
+  z.object(projectListResponseSchema.shape),
 );
 
 const idempotencyKeyHeaderSchema = z.object({
@@ -282,7 +280,7 @@ registry.registerPath({
       description: "List of projects",
       content: {
         "application/json": {
-          schema: z.array(ProjectSchema),
+          schema: ProjectListSchema,
         },
       },
     },

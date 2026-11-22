@@ -65,12 +65,17 @@ components:
           type: string
         token:
           type: string
-        balance:
-          type: string
-        totalDistributed:
-          type: string
         locked:
           type: boolean
+        totalDistributed:
+          type: string
+        distributionRound:
+          type: integer
+        balance:
+          type: string
+        expiresAt:
+          type: string
+          nullable: true
         collaborators:
           type: array
           items:
@@ -81,21 +86,100 @@ components:
               alias:
                 type: string
               basisPoints:
-                type: number
+                type: integer
             required:
               - address
               - alias
               - basisPoints
+        participantPaymentStatuses:
+          type: array
+          nullable: true
+          items:
+            type: object
+            properties:
+              address:
+                type: string
+              alias:
+                type: string
+                nullable: true
+              basisPoints:
+                type: integer
+              status:
+                type: string
+                enum:
+                  - paid
+                  - pending
+                  - failed
+                  - unpaid
+              roundId:
+                type: string
+                nullable: true
+              lastUpdated:
+                type: number
+                nullable: true
+            required:
+              - address
+              - alias
+              - basisPoints
+              - status
+              - roundId
+              - lastUpdated
       required:
         - projectId
         - title
         - projectType
         - owner
         - token
-        - balance
-        - totalDistributed
         - locked
+        - totalDistributed
+        - distributionRound
+        - balance
+        - expiresAt
         - collaborators
+        - participantPaymentStatuses
+    ProjectList:
+      type: object
+      properties:
+        projects:
+          type: array
+          items:
+            type: object
+            properties:
+              projectId:
+                type: string
+              title:
+                type: string
+              projectType:
+                type: string
+              owner:
+                type: string
+              token:
+                type: string
+              locked:
+                type: boolean
+              totalDistributed:
+                type: string
+              distributionRound:
+                type: integer
+            required:
+              - projectId
+              - title
+              - projectType
+              - owner
+              - token
+              - locked
+              - totalDistributed
+              - distributionRound
+        total:
+          type: integer
+          minimum: 0
+        nextCursor:
+          type: string
+          nullable: true
+      required:
+        - projects
+        - total
+        - nextCursor
     XdrResponse:
       type: object
       properties:
@@ -600,9 +684,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Project"
+                $ref: "#/components/schemas/ProjectList"
         "400":
           description: Validation error
           content:

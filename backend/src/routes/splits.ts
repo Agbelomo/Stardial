@@ -92,6 +92,10 @@ import {
   buildUnsignedContractCall,
   assertProjectOwner,
 } from "../services/splits.service.js";
+import {
+  serializeProjectDetail,
+  serializeProjectList,
+} from "../serializers/projects.serializer.js";
 import { logger } from "../services/logger.js";
 import { idempotencyMiddleware } from "../middleware/idempotency.js";
 import { recordProjectEdit } from "../services/project-history.js";
@@ -264,15 +268,12 @@ splitsRouter.get("/", async (req: Request, res: Response, next: NextFunction) =>
       ? decodeContractValue("simulateTransaction:get_project_count", contractU32Schema, totalRetval)
       : projects.length;
 
-    return res.status(200).json(
-      serializeBigInts({
-        projects,
-        total,
-        start,
-        limit,
-        hasMore: start + projects.length < total,
-      })
-    );
+    return res.status(200).json({
+      ...serializeProjectList(projects, total, null),
+      start,
+      limit,
+      hasMore: start + projects.length < total,
+    });
   } catch (error) {
     return next(error);
   }
@@ -307,7 +308,7 @@ splitsRouter.get("/:projectId", async (req: Request, res: Response, next: NextFu
       );
     }
 
-    return res.status(200).json(serializeBigInts(project));
+    return res.status(200).json(serializeProjectDetail(project));
   } catch (error) {
     return next(error);
   }
@@ -416,7 +417,10 @@ splitsRouter.get(
   )
 );
 
-splitsRouter.post("/:projectId/deposit", idempotencyMiddleware, async (req, res, next) => {
+splitsRouter.post(
+  "/:projectId/deposit",
+  idempotencyMiddleware,
+  async (req: Request, res: Response, next: NextFunction) => {
   try {
     const requestId = res.locals.requestId;
 

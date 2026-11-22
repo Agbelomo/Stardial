@@ -164,7 +164,7 @@ usersRouter.post("/login", async (req: Request, res: Response, next: NextFunctio
         "Unable to sign in. Check your details or try again later.",
       );
     }
-    const { user, token } = authenticated;
+    const { user } = authenticated;
     const sessionVersion = user.sessionVersion ?? 0;
     let refreshToken: string | undefined;
     try {
@@ -183,16 +183,9 @@ usersRouter.post("/login", async (req: Request, res: Response, next: NextFunctio
     });
     logAuthEvent(res, "login", "success", { userId: user.id });
 
+    // One serialized profile, one token: the previous payload listed every
+    // profile field twice around a spread and used two different token values.
     return res.status(200).json({
-      id: user.id,
-      walletAddress: user.walletAddress,
-      email: user.email,
-      alias: user.alias,
-      role: user.role,
-      isActive: user.isActive,
-      createdAt: user.createdAt.toISOString(),
-      updatedAt: user.updatedAt.toISOString(),
-      token,
       ...serializeUser(user),
       token: signToken(user.walletAddress, sessionVersion),
       ...(refreshToken ? { refreshToken } : {}),

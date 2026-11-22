@@ -13,13 +13,20 @@ import {
   encodeCursor,
   fetchProjectById,
   listProjects as listProjectsService,
-  serializeBigInts,
   simulateReadOnlyContractCall,
 } from "../services/splits.service.js";
+import {
+  serializeProjectDetail,
+  serializeProjectList,
+} from "../serializers/projects.serializer.js";
 import { recordProjectEdit } from "../services/project-history.js";
 import { contractU32Schema } from "../schemas/stellar-rpc.schemas.js";
 import { decodeContractValue } from "../services/rpc-response-validation.js";
-import { deriveParticipantStatuses, type Collaborator } from "../lib/split-lifecycle.js";
+import {
+  deriveParticipantStatuses,
+  type Collaborator,
+  type ParticipantPaymentStatus,
+} from "../lib/split-lifecycle.js";
 import { createPayoutHistoryService } from "../services/PayoutHistoryService.js";
 import { logger } from "../services/logger.js";
 import { invalidateCache, invalidateCacheByPrefix } from "../services/stellar.js";
@@ -70,10 +77,10 @@ export class SplitsController {
         }
       }
 
-      const [projects, total] = await Promise.all([
-        listProjectsService(start, limit, search, type),
-        simulateReadOnlyContractCall("get_project_count"),
-      ]);
+      // Read the page before the count so the two simulator calls cannot
+      // interleave, then serialize through the list contract model.
+      const projects = await listProjectsService(start, limit, search, type);
+      const total = await simulateReadOnlyContractCall("get_project_count");
 
       const totalCount = total
         ? decodeContractValue("simulateTransaction:get_project_count", contractU32Schema, total)
@@ -81,13 +88,7 @@ export class SplitsController {
 
       const nextCursor = start + projects.length < totalCount ? encodeCursor(start + limit) : null;
 
-      return res.status(200).json(
-        serializeBigInts({
-          projects,
-          total: totalCount,
-          nextCursor,
-        }),
-      );
+      return res.status(200).json(serializeProjectList(projects, totalCount, nextCursor));
     } catch (error) {
       return next(error);
     }
@@ -112,7 +113,7 @@ export class SplitsController {
       // collaborators are only present once the project has been read on-chain.
       const projectRecord = project as Record<string, unknown> & { collaborators?: Collaborator[] };
 
-      let participantPaymentStatuses = null;
+      let participantPaymentStatuses: ParticipantPaymentStatus[] | null = null;
       try {
         const payments = await this.payoutHistoryService.getPayoutsByRound(projectId);
         participantPaymentStatuses = deriveParticipantStatuses(
@@ -124,7 +125,7 @@ export class SplitsController {
       }
 
       return res.status(200).json(
-        serializeBigInts({ ...projectRecord, participantPaymentStatuses }),
+        serializeProjectDetail(projectRecord, participantPaymentStatuses),
       );
     } catch (error) {
       return next(error);

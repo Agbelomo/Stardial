@@ -91,6 +91,44 @@ const createApp = () => {
   return app;
 };
 
+/**
+ * These routes read expiration/history state and derived payout statuses from
+ * Postgres. Without a data source every route that touches them fails with
+ * "Database not initialized", so install an in-memory one for the suite.
+ * Individual tests override it when they assert on specific writes.
+ */
+function installTestDataSource() {
+  const historyRepository = {
+    find: vi.fn().mockResolvedValue([]),
+    findOne: vi.fn().mockResolvedValue(null),
+    create: vi.fn((entry: unknown) => entry),
+    save: vi.fn(async (entry: unknown) => entry),
+  };
+  const queryBuilder = {
+    andWhere: vi.fn().mockReturnThis(),
+    orderBy: vi.fn().mockReturnThis(),
+    addOrderBy: vi.fn().mockReturnThis(),
+    skip: vi.fn().mockReturnThis(),
+    take: vi.fn().mockReturnThis(),
+    getMany: vi.fn().mockResolvedValue([]),
+    getManyAndCount: vi.fn().mockResolvedValue([[], 0]),
+    getCount: vi.fn().mockResolvedValue(0),
+  };
+
+  setDataSourceForTests({
+    isInitialized: true,
+    getRepository: (entity: { name?: string }) => {
+      if (entity?.name === "User") {
+        return { findOne: vi.fn().mockResolvedValue(null) };
+      }
+      if (entity?.name === "TransactionRecord") {
+        return { createQueryBuilder: vi.fn(() => queryBuilder) };
+      }
+      return historyRepository;
+    },
+  } as unknown as DataSource);
+}
+
 beforeAll(() => {
   process.env.HORIZON_URL = "https://horizon.test";
   process.env.SOROBAN_RPC_URL = "https://soroban.test";
@@ -102,6 +140,10 @@ beforeAll(() => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  installTestDataSource();
+  // The read cache is module state shared by every test in this file; a stale
+  // list page would otherwise answer a request without consuming its mock.
+  invalidateCacheByPrefix("list_projects:");
 });
 
 describe("splits routes integration", () => {
@@ -313,7 +355,31 @@ describe("splits routes integration", () => {
     simulateTransactionMock
       .mockResolvedValueOnce({
         result: {
-          retval: [{ projectId: "project_1" }, { projectId: "project_2" }],
+          retval: [
+            {
+              project_id: "project_1",
+              title: "Project 1",
+              project_type: "music",
+              owner: "GOWNER",
+              token: "GTOKEN",
+              locked: false,
+              total_distributed: 0n,
+              distribution_round: 0,
+              // Large nested objects must not appear in the list payload.
+              collaborators: [{ address: "GCOLLAB", alias: "A", basis_points: 10_000 }],
+            },
+            {
+              project_id: "project_2",
+              title: "Project 2",
+              project_type: "film",
+              owner: "GOWNER",
+              token: "GTOKEN",
+              locked: false,
+              total_distributed: 100n,
+              distribution_round: 1,
+              collaborators: [{ address: "GCOLLAB", alias: "B", basis_points: 10_000 }],
+            },
+          ],
         },
       })
       .mockResolvedValueOnce({
@@ -325,9 +391,25 @@ describe("splits routes integration", () => {
     const response = await request(app).get("/splits?start=0&limit=10").expect(200);
 
     expect(response.body).toMatchObject({
-      projects: [{ projectId: "project_1" }, { projectId: "project_2" }],
+      projects: [
+        {
+          projectId: "project_1",
+          title: "Project 1",
+          projectType: "music",
+          totalDistributed: "0",
+          distributionRound: 0,
+        },
+        {
+          projectId: "project_2",
+          title: "Project 2",
+          totalDistributed: "100",
+          distributionRound: 1,
+        },
+      ],
       total: 5,
     });
+    expect(response.body.projects[0]).not.toHaveProperty("collaborators");
+    expect(response.body.projects[0]).not.toHaveProperty("project_id");
 
     expect(getAccountMock).toHaveBeenCalledWith("GTESTSIMULATOR");
   });
@@ -337,7 +419,10 @@ describe("splits routes integration", () => {
     simulateTransactionMock
       .mockResolvedValueOnce({
         result: {
-          retval: [{ projectId: "project_3" }, { projectId: "project_4" }],
+          retval: [
+            { project_id: "project_3", title: "Project 3" },
+            { project_id: "project_4", title: "Project 4" },
+          ],
         },
       })
       .mockResolvedValueOnce({
@@ -350,7 +435,10 @@ describe("splits routes integration", () => {
     const response = await request(app).get(`/splits?cursor=${cursor}&limit=2`).expect(200);
 
     expect(response.body).toMatchObject({
-      projects: [{ projectId: "project_3" }, { projectId: "project_4" }],
+      projects: [
+        { projectId: "project_3", title: "Project 3" },
+        { projectId: "project_4", title: "Project 4" },
+      ],
       total: 10,
     });
     expect(response.body.nextCursor).toBeTruthy();
@@ -386,11 +474,26 @@ describe("splits routes integration", () => {
   });
 
   it("fetches a project by id", async () => {
+    invalidateCacheByPrefix("project:");
     getAccountMock.mockResolvedValue({ accountId: "GSIM" });
     simulateTransactionMock
       .mockResolvedValueOnce({
         result: {
-          retval: { projectId: "project_1", title: "Project 1" },
+          retval: {
+            project_id: "project_1",
+            title: "Project 1",
+            project_type: "music",
+            owner: "GOWNER",
+            token: "GTOKEN",
+            locked: false,
+            total_distributed: 0n,
+            distribution_round: 0,
+            collaborators: [
+              { address: "GCOLLAB", alias: "Producer", basis_points: 10_000 },
+            ],
+            // Internal metadata a raw passthrough would have published.
+            storage_key: "internal/ledger/project_1",
+          },
         },
       })
       .mockResolvedValueOnce({
@@ -403,11 +506,23 @@ describe("splits routes integration", () => {
 
     const response = await request(app).get("/splits/project_1").expect(200);
 
-    expect(response.body).toEqual({
+    expect(response.body).toMatchObject({
       projectId: "project_1",
       title: "Project 1",
+      projectType: "music",
+      owner: "GOWNER",
+      token: "GTOKEN",
+      locked: false,
+      totalDistributed: "0",
+      distributionRound: 0,
       balance: "123",
+      collaborators: [
+        { address: "GCOLLAB", alias: "Producer", basisPoints: 10_000 },
+      ],
     });
+    expect(response.body).not.toHaveProperty("project_id");
+    expect(response.body).not.toHaveProperty("storage_key");
+    expect(response.body.collaborators[0]).not.toHaveProperty("basis_points");
     expect(getAccountMock).toHaveBeenCalledWith("GTESTSIMULATOR");
   });
 
