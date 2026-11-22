@@ -20,6 +20,7 @@ import { ledgerRouter } from "./routes/ledger.js";
 import { notificationsRouter } from "./routes/notifications.js";
 import { webhooksRouter } from "./routes/webhooks.js";
 import { errorHandler, notFoundHandler } from "./middleware/error.js";
+import { responseCompression } from "./middleware/compression.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
 import {
   metricsMiddleware,
@@ -54,6 +55,8 @@ dotenv.config();
 export const app = express();
 
 app.disable("x-powered-by");
+
+app.use(responseCompression());
 
 const corsOrigin = resolveCorsOrigins(process.env);
 
