@@ -2,6 +2,10 @@ import express from "express";
 import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { authEmailRouter } from "../routes/auth-email.js";
+import {
+  registerInvitation,
+  resetInvitationRegistryForTests,
+} from "../services/collaboration/invitation-registry.js";
 import { errorHandler, notFoundHandler } from "../middleware/error.js";
 import { requestIdMiddleware } from "../middleware/request-id.js";
 
@@ -47,6 +51,7 @@ function createApp() {
 describe("Auth Email Flows", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetInvitationRegistryForTests();
     findOneMock.mockResolvedValue(null);
     sendPasswordResetEmailMock.mockResolvedValue(undefined);
     sendInvitationEmailMock.mockResolvedValue(undefined);
@@ -125,5 +130,41 @@ describe("Auth Email Flows", () => {
 
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
+  });
+
+  it("paginates pending invitations newest first", async () => {
+    const base = Date.now();
+    for (let i = 0; i < 25; i += 1) {
+      registerInvitation({
+        email: `invitee${i}@example.com`,
+        tokenJti: `jti-${i}`,
+        now: new Date(base - (25 - i) * 1000),
+      });
+    }
+
+    const app = createApp();
+    const first = await request(app).get("/auth/invitations/pending");
+
+    expect(first.status).toBe(200);
+    expect(first.body.count).toBe(25);
+    expect(first.body.limit).toBe(20);
+    expect(first.body.offset).toBe(0);
+    expect(first.body.hasMore).toBe(true);
+    expect(first.body.invitations).toHaveLength(20);
+    expect(first.body.invitations[0].email).toBe("invitee24@example.com");
+
+    const second = await request(app).get("/auth/invitations/pending?limit=20&offset=20");
+
+    expect(second.status).toBe(200);
+    expect(second.body.invitations).toHaveLength(5);
+    expect(second.body.hasMore).toBe(false);
+    expect(second.body.invitations[4].email).toBe("invitee0@example.com");
+  });
+
+  it("rejects a pending-invitations page size above the cap", async () => {
+    const app = createApp();
+    const response = await request(app).get("/auth/invitations/pending?limit=101");
+
+    expect(response.status).toBe(400);
   });
 });
