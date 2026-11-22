@@ -131,11 +131,19 @@ describe("Transaction History API", () => {
   });
 
   describe("GET /transactions/:txHash", () => {
-    it("should return 404 for non-existent transaction", async () => {
+    it("should return 404 for a well-formed but non-existent transaction hash", async () => {
+      const response = await request(app)
+        .get(`/transactions/${"f".repeat(64)}`);
+
+      expect(response.status).toBe(404);
+    });
+
+    it("should reject a malformed transaction hash before searching", async () => {
       const response = await request(app)
         .get("/transactions/nonexistenthash123");
 
-      expect(response.status).toBe(404);
+      expect(response.status).toBe(400);
+      expect(response.body.code).toBe("VALIDATION_ERROR");
     });
 
     it("should reject empty transaction hash", async () => {

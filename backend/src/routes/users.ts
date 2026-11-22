@@ -15,6 +15,8 @@ import { authJwtMiddleware } from "../middleware/auth-jwt.js";
 import { logAuthEvent } from "../services/auth-events.js";
 import { loginAttemptStore } from "../services/login-attempts.js";
 import { hashPassword, verifyPassword } from "../services/password.js";
+import { validateRequest } from "../middleware/validate.js";
+import { noQuerySchema, walletAddressParamsSchema } from "../schemas/api-input.schemas.js";
 
 export const usersRouter = Router();
 
@@ -319,27 +321,32 @@ usersRouter.delete("/me", authJwtMiddleware, async (req: Request, res: Response,
  * description: Looks up a public user profile by Stellar wallet address.
  * tags: [Users]
  */
-usersRouter.get("/:walletAddress", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { walletAddress } = req.params;
+usersRouter.get(
+  "/:walletAddress",
+  validateRequest({ params: walletAddressParamsSchema, query: noQuerySchema }),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      // Validated (StrKey-checked) address from the shared middleware.
+      const walletAddress = req.params.walletAddress as string;
 
-    const dataSource = getDataSource();
-    const userRepository = dataSource.getRepository(User);
+      const dataSource = getDataSource();
+      const userRepository = dataSource.getRepository(User);
 
-    const user = await userRepository.findOne({
-      where: { walletAddress: userRegistrationSchema.shape.walletAddress.parse(walletAddress), deletedAt: IsNull() }
-    });
+      const user = await userRepository.findOne({
+        where: { walletAddress, deletedAt: IsNull() }
+      });
 
-    if (!user) {
-      throw new AppError(
-        ErrorType.RPC,
-        ErrorCode.NOT_FOUND,
-        `User with wallet address ${walletAddress} not found.`
-      );
+      if (!user) {
+        throw new AppError(
+          ErrorType.RPC,
+          ErrorCode.NOT_FOUND,
+          `User with wallet address ${walletAddress} not found.`
+        );
+      }
+
+      return res.status(200).json(serializeUser(user));
+    } catch (error) {
+      return next(error);
     }
-
-    return res.status(200).json(serializeUser(user));
-  } catch (error) {
-    return next(error);
   }
-});
+);
