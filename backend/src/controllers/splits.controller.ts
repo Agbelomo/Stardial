@@ -86,9 +86,19 @@ export class SplitsController {
         ? decodeContractValue("simulateTransaction:get_project_count", contractU32Schema, total)
         : 0;
 
-      const nextCursor = start + projects.length < totalCount ? encodeCursor(start + limit) : null;
+      const hasMore = start + projects.length < totalCount;
+      const nextCursor = hasMore ? encodeCursor(start + projects.length) : null;
 
-      return res.status(200).json(serializeProjectList(projects, totalCount, nextCursor));
+      return res.status(200).json(
+        serializeBigInts({
+          projects,
+          total: totalCount,
+          start,
+          limit,
+          hasMore,
+          nextCursor,
+        }),
+      );
     } catch (error) {
       return next(error);
     }

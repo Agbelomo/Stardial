@@ -433,6 +433,9 @@ describe("splits routes integration", () => {
         },
       ],
       total: 5,
+      start: 0,
+      limit: 10,
+      hasMore: true,
     });
     expect(response.body.projects[0]).not.toHaveProperty("collaborators");
     expect(response.body.projects[0]).not.toHaveProperty("project_id");
@@ -466,8 +469,11 @@ describe("splits routes integration", () => {
         { projectId: "project_4", title: "Project 4" },
       ],
       total: 10,
+      start: 2,
+      limit: 2,
+      hasMore: true,
     });
-    expect(response.body.nextCursor).toBeTruthy();
+    expect(response.body.nextCursor).toBe(Buffer.from("4").toString("base64"));
   });
 
   it("cursor pagination returns null nextCursor on last page", async () => {
@@ -488,6 +494,11 @@ describe("splits routes integration", () => {
     const response = await request(app).get(`/splits?cursor=${cursor}&limit=5`).expect(200);
 
     expect(response.body.projects).toHaveLength(1);
+    expect(response.body).toMatchObject({
+      start: 9,
+      limit: 5,
+      hasMore: false,
+    });
     expect(response.body.nextCursor).toBeNull();
   });
 
