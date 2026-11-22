@@ -19,6 +19,7 @@ jobs:
       - name: Build and start services via Docker Compose
         run: |
           docker compose up -d --build
+          docker compose ps
 
       - name: Wait for service health endpoints
         run: |
@@ -31,6 +32,7 @@ jobs:
             elapsed=$((elapsed + 5))
             if [ $elapsed -ge $timeout ]; then
               echo "Error: Health check endpoint did not respond within $timeout seconds."
+              docker compose ps
               docker compose logs
               exit 1
             fi
