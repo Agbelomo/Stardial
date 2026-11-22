@@ -1,5 +1,5 @@
 import { sendErrorResponse } from "../lib/api-error.js";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import type { Request, Response, NextFunction } from "express";
 import { logger } from "../services/logger.js";
 
@@ -129,7 +129,8 @@ export function listRateLimitPolicies(): RateLimitPolicy[] {
 function clientKey(req: Request): string {
   const user = (req as Request & { user?: { id?: string } }).user;
   if (user?.id) return `user:${user.id}`;
-  return `ip:${req.ip ?? req.socket.remoteAddress ?? "unknown"}`;
+  // Use ipKeyGenerator for IPv6-safe IP extraction (express-rate-limit v8+ requirement).
+  return `ip:${ipKeyGenerator(req) ?? "unknown"}`;
 }
 
 function rateLimitHandler(req: Request, res: Response) {

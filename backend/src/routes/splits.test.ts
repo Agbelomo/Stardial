@@ -102,6 +102,27 @@ beforeAll(() => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Set up a minimal database mock so routes that touch the DB don't fail.
+  setDataSourceForTests({
+    isInitialized: true,
+    getRepository: () => ({
+      findOne: vi.fn().mockResolvedValue(null),
+      find: vi.fn().mockResolvedValue([]),
+      create: vi.fn((entry: unknown) => entry),
+      save: vi.fn(async (entry: unknown) => entry),
+    }),
+  } as unknown as DataSource);
+});
+
+beforeAll(() => {
+  // Default mocks that can be overridden by individual tests
+  getAccountMock.mockResolvedValue({ accountId: "GTESTSIMULATOR" });
+  prepareTransactionMock.mockResolvedValue({
+    toXDR: () => "MOCKED_XDR",
+    sequence: "1",
+    fee: "100",
+  });
+  simulateTransactionMock.mockResolvedValue({ result: { retval: undefined } });
 });
 
 describe("splits routes integration", () => {
@@ -665,8 +686,13 @@ describe("splits routes integration", () => {
  */
 function mockOnChainProjectOwner(owner: string) {
   invalidateCacheByPrefix("project:");
-  simulateTransactionMock.mockResolvedValue({
-    result: { retval: { owner, locked: false, collaborators: [] } },
+  simulateTransactionMock.mockImplementation(async (tx: { preparedOperation?: { method: string } }) => {
+    const method = tx.preparedOperation?.method;
+    if (method === "get_project") {
+      return { result: { retval: { owner, locked: false, collaborators: [] } } };
+    }
+    // Default fallback for other methods
+    return { result: { retval: undefined } };
   });
 }
 
