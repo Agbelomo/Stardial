@@ -27,7 +27,6 @@ import {
   stellarAddressSchema,
   createSplitSchema,
   projectIdParamSchema,
-  lockProjectSchema,
   depositSchema,
   updateMetadataSchema,
   updateCollaboratorsSchema,
@@ -79,7 +78,6 @@ import {
   simulateReadOnlyContractCall,
   listProjects,
   fetchProjectById,
-  buildLockProjectUnsignedXdr,
   buildDepositUnsignedXdr,
   buildUpdateCollaboratorsUnsignedXdr,
   buildUpdateMetadataUnsignedXdr,
@@ -309,46 +307,6 @@ splitsRouter.get("/:projectId", async (req: Request, res: Response, next: NextFu
 
     return res.status(200).json(serializeBigInts(project));
   } catch (error) {
-    return next(error);
-  }
-});
-
-splitsRouter.post("/:projectId/lock", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const parsedId = projectIdParamSchema.safeParse(req.params.projectId);
-    if (!parsedId.success) {
-      throw new AppError(
-        ErrorType.VALIDATION,
-        ErrorCode.VALIDATION_ERROR,
-        "Invalid projectId format.",
-        undefined,
-        parsedId.error.flatten()
-      );
-    }
-    const projectId = parsedId.data;
-
-    const parsedBody = lockProjectSchema.safeParse(req.body);
-
-    if (!parsedBody.success) {
-      throw new AppError(
-        ErrorType.VALIDATION,
-        ErrorCode.VALIDATION_ERROR,
-        "Invalid request payload.",
-        { message: "Check owner address." },
-        parsedBody.error.flatten()
-      );
-    }
-
-    const result = await buildLockProjectUnsignedXdr({
-      projectId,
-      owner: parsedBody.data.owner,
-    });
-
-    return res.status(200).json(result);
-  } catch (error) {
-    if (error instanceof RequestValidationError) {
-      throw new AppError(ErrorType.VALIDATION, ErrorCode.VALIDATION_ERROR, error.message);
-    }
     return next(error);
   }
 });

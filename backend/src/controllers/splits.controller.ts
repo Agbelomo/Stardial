@@ -144,6 +144,10 @@ export class SplitsController {
       const body = lockProjectSchema.parse(req.body);
       const result = await buildLockProjectUnsignedXdr({ projectId, owner: body.owner });
       await recordProjectEdit(projectId, body.owner, "lock", { locked: true });
+      // Evict cached project/list data; the lock state changes once the
+      // transaction is submitted (same pattern as deposit).
+      invalidateCache(`project:${projectId}`);
+      invalidateCacheByPrefix("list_projects:");
       return res.status(200).json(result);
     } catch (error) {
       return next(error);
