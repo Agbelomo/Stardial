@@ -6,6 +6,7 @@ import { getDataSource, withTransaction } from "../services/database.js";
 import { User } from "../entities/User.js";
 import {
   userRegistrationSchema,
+  userUpdateSchema,
   stellarAddressSchema,
 } from "../schemas/user.schemas.js";
 import { AppError, ErrorCode, ErrorType } from "../lib/errors.js";
@@ -111,15 +112,19 @@ usersRouter.post("/login", async (req: Request, res: Response, next: NextFunctio
   try {
     const loginSchema = z.union([
       // Wallet-address login (existing flow — unchanged)
-      z.object({
-        walletAddress: stellarAddressSchema,
-        password: z.string().optional(),
-      }),
+      z
+        .object({
+          walletAddress: stellarAddressSchema,
+          password: z.string().optional(),
+        })
+        .strict(),
       // Email + password login
-      z.object({
-        email: z.string().email("Invalid email format"),
-        password: z.string().min(1, "Password is required"),
-      }),
+      z
+        .object({
+          email: z.string().email("Invalid email format"),
+          password: z.string().min(1, "Password is required"),
+        })
+        .strict(),
     ]);
 
     const body = loginSchema.parse(req.body);
@@ -166,7 +171,7 @@ usersRouter.post("/login", async (req: Request, res: Response, next: NextFunctio
         "Unable to sign in. Check your details or try again later.",
       );
     }
-    const { user, token } = authenticated;
+    const { user } = authenticated;
     const sessionVersion = user.sessionVersion ?? 0;
     let refreshToken: string | undefined;
     try {
@@ -185,6 +190,8 @@ usersRouter.post("/login", async (req: Request, res: Response, next: NextFunctio
     });
     logAuthEvent(res, "login", "success", { userId: user.id });
 
+    // One serialized profile, one token: the previous payload listed every
+    // profile field twice around a spread and used two different token values.
     return res.status(200).json({
       id: user.id,
       walletAddress: user.walletAddress,
@@ -194,7 +201,6 @@ usersRouter.post("/login", async (req: Request, res: Response, next: NextFunctio
       isActive: user.isActive,
       createdAt: user.createdAt.toISOString(),
       updatedAt: user.updatedAt.toISOString(),
-      token,
       ...serializeUser(user),
       token: signToken(user.walletAddress, sessionVersion),
       ...(refreshToken ? { refreshToken } : {}),
@@ -235,12 +241,10 @@ usersRouter.get("/me", authJwtMiddleware, async (req: Request, res: Response, ne
 usersRouter.patch("/me", authJwtMiddleware, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { walletAddress } = (req as Request & { user: { walletAddress: string } }).user;
-    const updateSchema = z.object({
-      email: z.string().email("Invalid email format").optional(),
-      alias: z.string().min(1, "Alias is required").max(64, "Alias must be at most 64 characters").optional()
-    });
 
-    const updates = updateSchema.parse(req.body);
+    // Shared contract: unknown fields are rejected and an empty body is not a
+    // valid update (it would otherwise return 200 having changed nothing).
+    const updates = userUpdateSchema.parse(req.body);
     const savedUser = await withTransaction(async (queryRunner) => {
       const userRepository = queryRunner.manager.getRepository(User);
       const user = await userRepository.findOne({ where: { walletAddress, deletedAt: IsNull() } });

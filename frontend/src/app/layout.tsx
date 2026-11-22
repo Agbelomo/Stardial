@@ -5,6 +5,7 @@ import "./globals.css";
 import { ToastProvider } from "@/components/toast-provider";
 import { WalletProvider } from "@/components/wallet-provider";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
+import { RouteContextTracker } from "@/components/route-context-tracker";
 import { QueryProvider } from "@/components/query-provider";
 import { LoadingBar } from "@/components/LoadingBar";
 
@@ -40,6 +41,7 @@ export default async function RootLayout({
     <html lang={locale} suppressHydrationWarning>
       <body className={`${dmSans.variable} ${syne.variable} antialiased`}>
         <LoadingBar />
+        <RouteContextTracker />
         <AppErrorBoundary>
           <QueryProvider>
             <ToastProvider>

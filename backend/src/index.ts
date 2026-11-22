@@ -20,13 +20,16 @@ import { ledgerRouter } from "./routes/ledger.js";
 import { notificationsRouter } from "./routes/notifications.js";
 import { webhooksRouter } from "./routes/webhooks.js";
 import { errorHandler, notFoundHandler } from "./middleware/error.js";
+import { responseCompression } from "./middleware/compression.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
+import { apiVersionMiddleware } from "./middleware/api-version.js";
 import {
   metricsMiddleware,
   payloadSizeMetricsMiddleware,
   splitLifecycleMetricsMiddleware,
 } from "./middleware/metrics.js";
 import { requestTimeout } from "./middleware/timeout.js";
+import { requireJsonObjectBody } from "./middleware/validate.js";
 import {
   globalLimiter,
   readLimiter,
@@ -54,6 +57,8 @@ dotenv.config();
 export const app = express();
 
 app.disable("x-powered-by");
+
+app.use(responseCompression());
 
 const corsOrigin = resolveCorsOrigins(process.env);
 
@@ -89,6 +94,8 @@ app.use(
       "Authorization",
       "Content-Type",
       "X-Request-ID",
+      "X-API-Version",
+      "Accept-Version",
       "Idempotency-Key",
       "X-Webhook-Signature",
       "X-Webhook-Timestamp",
@@ -96,7 +103,15 @@ app.use(
       "X-Delivery-Id",
       "X-Event-Id",
     ],
-    exposedHeaders: ["X-Request-ID", "Retry-After"],
+    exposedHeaders: [
+      "X-Request-ID",
+      "Retry-After",
+      "API-Version",
+      "X-API-Version",
+      "Deprecation",
+      "Sunset",
+      "Link",
+    ],
   })
 );
 // Before express.json() so 413 rejections are still counted (Issue #1090).
@@ -111,7 +126,11 @@ app.use(
   })
 );
 app.use(requestIdMiddleware);
+app.use(apiVersionMiddleware);
 app.use(express.json({ limit: "1mb" }));
+// Write routes take an object body. `express.json()` also parses a top-level
+// array, which no route schema can validate, so reject it before any handler.
+app.use(requireJsonObjectBody);
 app.use(metricsMiddleware);
 app.use(requestTimeout());
 
@@ -206,7 +225,37 @@ app.use("/events", eventsRouter);
 app.use("/api/ledger", ledgerRouter);
 app.use("/notifications", notificationsRouter);
 app.use("/webhooks", webhooksRouter);
-app.use("/v1/webhooks", webhooksRouter);
+
+// Canonical versioned API surface (/v1/...). Unversioned routes above are
+// retained as backwards-compatible aliases; see docs/api-versioning.md.
+const v1Router = express.Router();
+v1Router.use("/health", readLimiter, healthRouter);
+v1Router.use(
+  "/splits/admin",
+  adminLimiter,
+  auditAdminMutationsMiddleware,
+  requirePaymentsAdminAccess,
+  enforcePaymentsAdminWriteEnabled
+);
+v1Router.use("/splits", (req, res, next) => {
+  if (req.method === "GET") return readLimiter(req, res, next);
+  return writeLimiter(req, res, next);
+}, splitsRouter);
+v1Router.use("/ops", opsRouter);
+v1Router.use("/auth", authLimiter, authEmailRouter, authAccountRouter);
+v1Router.use("/collaboration", collaborationRouter);
+v1Router.use("/users/register", authLimiter);
+v1Router.use("/users/login", authLimiter);
+v1Router.use("/users", (req, res, next) => {
+  if (req.method === "GET") return readLimiter(req, res, next);
+  return writeLimiter(req, res, next);
+}, usersRouter);
+v1Router.use("/transactions", readLimiter, transactionsRouter);
+v1Router.use("/events", sseConnectionLimiter, eventsRouter);
+v1Router.use("/ledger", readLimiter, ledgerRouter);
+v1Router.use("/notifications", readLimiter, notificationsRouter);
+v1Router.use("/webhooks", webhooksRouter);
+app.use("/v1", v1Router);
 
 app.get("/api/openapi.json", async (_req, res, next) => {
   try {
@@ -294,9 +343,17 @@ if (process.env.NODE_ENV !== "test") {
             logger.error("Error during server close", { error: err });
             process.exit(1);
           }
+          clearInterval(idleConnectionCloser);
           logger.info("Server closed cleanly");
           process.exit(0);
         });
+        // Readiness polling and other clients may hold keep-alive sockets
+        // that only become idle after server.close() is called. Close them as
+        // they drain so shutdown does not stall until the force-exit timeout;
+        // in-flight requests still finish normally.
+        server.closeIdleConnections();
+        const idleConnectionCloser = setInterval(() => server.closeIdleConnections(), 100);
+        idleConnectionCloser.unref();
         const forceTimeoutMs = Number(process.env.SHUTDOWN_FORCE_TIMEOUT_MS ?? 10_000);
         setTimeout(() => {
           logger.warn("Force exiting after timeout");

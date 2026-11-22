@@ -35,31 +35,31 @@ export const authEmailRouter = Router();
 const passwordResetRequestSchema = z.object({
   email: z.string().email("Invalid email format"),
   resetUrlBase: z.string().url().optional(),
-});
+}).strict();
 
 const passwordResetConfirmSchema = z.object({
   token: z.string().min(1),
   newPassword: z.string().min(8, "Password must be at least 8 characters"),
-});
+}).strict();
 
 const emailVerificationResendSchema = z.object({
   email: z.string().email("Invalid email format"),
   verifyUrlBase: z.string().url().optional(),
-});
+}).strict();
 
 const emailVerificationConfirmSchema = z.object({
   token: z.string().min(1),
-});
+}).strict();
 
 const invitationRequestSchema = z.object({
   email: z.string().email("Invalid email format"),
   inviterWalletAddress: z.string().optional(),
   inviteUrlBase: z.string().url().optional(),
-});
+}).strict();
 
 const invitationAcceptSchema = z.object({
   token: z.string().min(1),
-});
+}).strict();
 
 authEmailRouter.post("/password-reset/request", async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -387,9 +387,11 @@ authEmailRouter.get("/invitations/pending", async (req: Request, res: Response, 
  */
 authEmailRouter.post("/invitations/:invitationId/cancel", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const schema = z.object({
-      actorWalletAddress: z.string().min(1, "actorWalletAddress is required"),
-    });
+    const schema = z
+      .object({
+        actorWalletAddress: z.string().min(1, "actorWalletAddress is required"),
+      })
+      .strict();
     const { actorWalletAddress } = schema.parse(req.body);
     const invitationId = req.params.invitationId as string;
 

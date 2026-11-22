@@ -1,7 +1,10 @@
 {
   "Error": {
     "title": "Erreur inattendue de l'application",
-    "retry": "Réessayer"
+    "retry": "Réessayer",
+    "back": "Retour",
+    "home": "Retour à l'accueil",
+    "context": "Vous étiez sur :"
   },
   "SplitApp": {
     "header": {

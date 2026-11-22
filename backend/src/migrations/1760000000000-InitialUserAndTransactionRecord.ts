@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import type { MigrationInterface, QueryRunner } from "typeorm";
 
 export class InitialUserAndTransactionRecord1760000000000 implements MigrationInterface {
   name = "InitialUserAndTransactionRecord1760000000000";

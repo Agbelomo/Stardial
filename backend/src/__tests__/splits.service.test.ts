@@ -1,5 +1,7 @@
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
+import type { DataSource } from "typeorm";
 import { buildDepositUnsignedXdr } from "../services/splits.service.js";
+import { setDataSourceForTests } from "../services/database.js";
 
 vi.mock("../services/stellar.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../services/stellar.js")>();
@@ -21,6 +23,15 @@ vi.mock("../services/stellar.js", async (importOriginal) => {
 });
 
 describe("buildDepositUnsignedXdr", () => {
+  beforeEach(() => {
+    // Expiration lookups read project history; an empty in-memory repository
+    // keeps this unit test independent of Postgres.
+    setDataSourceForTests({
+      isInitialized: true,
+      getRepository: () => ({ find: async () => [] }),
+    } as unknown as DataSource);
+  });
+
   it("should fail if the token does not match the project token", async () => {
     await expect(
       buildDepositUnsignedXdr({

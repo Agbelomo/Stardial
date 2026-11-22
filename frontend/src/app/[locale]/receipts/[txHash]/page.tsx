@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { ReceiptUnavailable } from "@/components/ReceiptUnavailable";
 import { PrintReceiptButton } from "./PrintReceiptButton";
 
 interface Receipt {
@@ -27,17 +28,12 @@ export default async function ReceiptPage({
       cache: "no-store",
     });
   } catch {
-    return <main className="mx-auto max-w-2xl px-6 py-16 text-ink"><h1 className="text-2xl font-bold">Receipt unavailable</h1><p className="mt-3 text-muted">The transaction service could not be reached. Try again later.</p></main>;
+    return <ReceiptUnavailable />;
   }
   if (response.status === 404) notFound();
 
   if (!response.ok) {
-    return (
-      <main className="mx-auto max-w-2xl px-6 py-16 text-ink">
-        <h1 className="text-2xl font-bold">Receipt unavailable</h1>
-        <p className="mt-3 text-muted">The transaction service could not be reached. Try again later.</p>
-      </main>
-    );
+    return <ReceiptUnavailable />;
   }
 
   const receipt = (await response.json()) as Receipt;

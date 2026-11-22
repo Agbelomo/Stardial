@@ -109,7 +109,7 @@ export const OpsBackfillRequestSchema = z.object({
     .int()
     .positive()
     .describe("First ledger to replay events from (the last known good ledger)"),
-});
+}).strict();
 
 export type OpsBackfillRequest = z.infer<typeof OpsBackfillRequestSchema>;
 

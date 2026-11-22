@@ -25,6 +25,10 @@ import {
   type TransactionCursor,
 } from "../lib/keyset-cursor.js";
 import { authJwtMiddleware } from "../middleware/auth-jwt.js";
+import {
+  serializeTransactionRecord,
+  serializeTransactionRecords,
+} from "../serializers/transactions.serializer.js";
 import { logger } from "../services/logger.js";
 import { getEnv } from "../config/env.js";
 
@@ -173,7 +177,7 @@ transactionsRouter.get("/history", authJwtMiddleware, async (req: Request, res: 
     });
 
     return res.status(200).json({
-      transactions: page.records,
+      transactions: serializeTransactionRecords(page.records),
       total: page.total,
       ...buildPageMetadata(page, limit, offset),
     });
@@ -217,7 +221,7 @@ transactionsRouter.get("/export", authJwtMiddleware, async (req: Request, res: R
     logger.info("Exporting transaction history", { recipient, format, startDate, endDate, status });
 
     if (format === "json") {
-      const { records, total } = await payoutHistoryService.getPayoutsWithCount({
+      const page = await payoutHistoryService.getPayoutsPage({
         recipient,
         startDate,
         endDate,
@@ -225,7 +229,15 @@ transactionsRouter.get("/export", authJwtMiddleware, async (req: Request, res: R
         limit,
         offset,
       });
-      return res.status(200).json({ transactions: records, total, limit, offset });
+      return res.status(200).json({
+        transactions: serializeTransactionRecords(records),
+        total,
+        limit,
+        offset,
+        transactions: page.records,
+        total: page.total,
+        ...buildPageMetadata(page, limit, offset),
+      });
     }
 
     // format === "csv": stream the full authorized result set.
@@ -385,6 +397,26 @@ transactionsRouter.get(
  * description: Returns a single payout record matching the Stellar transaction hash.
  * tags: [Transactions]
  */
+transactionsRouter.get("/:txHash", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const txHashParam = req.params.txHash;
+    const txHash = Array.isArray(txHashParam) ? txHashParam[0] : txHashParam;
+
+    // A Stellar transaction hash is 64 hex characters. Reject malformed
+    // values before querying, instead of treating them as an unknown hash.
+    if (!txHash || !/^[a-fA-F0-9]{64}$/.test(txHash)) {
+      throw new AppError(
+        ErrorType.VALIDATION,
+        ErrorCode.VALIDATION_ERROR,
+        "Invalid transaction hash."
+      );
+    }
+
+    logger.info("Fetching transaction by hash", { txHash });
+
+    // Search for the transaction by hash
+    const results = await payoutHistoryService.searchPayouts(txHash);
+    const transaction = results.find(t => t.txHash === txHash);
 transactionsRouter.get(
   "/:txHash",
   validateRequest({ params: transactionHashParamsSchema, query: noQuerySchema }),
@@ -410,6 +442,10 @@ transactionsRouter.get(
     } catch (error) {
       return next(error);
     }
+
+    return res.status(200).json(serializeTransactionRecord(transaction));
+  } catch (error) {
+    return next(error);
   }
 );
 
@@ -453,5 +489,31 @@ transactionsRouter.get(
     } catch (error) {
       return next(error);
     }
+
+    const { limit, offset, cursor } = parsedQuery.data;
+    const decodedCursor = decodePageCursor(cursor);
+
+    logger.info("Fetching transactions for recipient", {
+      walletAddress,
+      limit,
+      offset,
+      cursor: decodedCursor ? "provided" : "none",
+    });
+
+    const page = await payoutHistoryService.getPayoutsPage({
+      recipient,
+      limit,
+      offset,
+      cursor: decodedCursor,
+    });
+
+    return res.status(200).json({
+      transactions: serializeTransactionRecords(page.records),
+      total: page.total,
+      walletAddress: recipient,
+      ...buildPageMetadata(page, limit, offset),
+    });
+  } catch (error) {
+    return next(error);
   }
 );

@@ -58,7 +58,7 @@ export const collaboratorSchema = CollaboratorSchema.omit({ basis_points: true }
     .int("basisPoints must be an integer")
     .positive("basisPoints must be greater than 0")
     .max(10_000, "basisPoints must be <= 10000")
-});
+}).strict();
 
 export const createSplitSchema = z
   .object({
@@ -74,6 +74,7 @@ export const createSplitSchema = z
     collaborators: z.array(collaboratorSchema).min(2, "at least 2 collaborators are required"),
     expiresAt: z.string().datetime().optional()
   })
+  .strict()
   .superRefine((payload, ctx) => {
     if (payload.expiresAt && new Date(payload.expiresAt).getTime() <= Date.now()) {
       ctx.addIssue({
@@ -117,12 +118,12 @@ export const projectIdParamSchema = z
 
 export const lockProjectSchema = z.object({
   owner: stellarAddressSchema.describe("owner")
-});
+}).strict();
 
 export const updateExpirationSchema = z.object({
   owner: stellarAddressSchema.describe("owner"),
   expiresAt: z.string().datetime().nullable()
-});
+}).strict();
 
 export const depositSchema = z.object({
   from: stellarAddressSchema.describe("from"),
@@ -131,7 +132,7 @@ export const depositSchema = z.object({
     .positive("amount must be greater than 0")
     .describe("deposit amount in stroops"),
   token: stellarAddressSchema.describe("token")
-});
+}).strict();
 
 export const updateMetadataSchema = z
   .object({
@@ -154,6 +155,7 @@ export const updateCollaboratorsSchema = z
     owner: stellarAddressSchema.describe("owner"),
     collaborators: z.array(collaboratorSchema).min(2, "at least 2 collaborators are required")
   })
+  .strict()
   .superRefine((payload, ctx) => {
     const totalBasisPoints = payload.collaborators.reduce(
       (sum, collaborator) => sum + collaborator.basisPoints,
@@ -196,7 +198,7 @@ export const listProjectsSchema = z.object({
 
 export const distributeSchema = z.object({
   sourceAddress: z.string().min(1, "sourceAddress is required").optional()
-});
+}).strict();
 
 export const historyQuerySchema = z.object({
   cursor: z.string().default(""),
@@ -206,11 +208,11 @@ export const historyQuerySchema = z.object({
 export const adminTokenSchema = z.object({
   admin: stellarAddressSchema.describe("admin"),
   token: stellarAddressSchema.describe("token")
-});
+}).strict();
 
 export const pauseDistributionsSchema = z.object({
   admin: stellarAddressSchema.describe("admin")
-});
+}).strict();
 
 export const isTokenAllowedQuerySchema = z.object({
   token: stellarAddressSchema.describe("token contract address to check")
@@ -228,9 +230,9 @@ export const withdrawUnallocatedSchema = z.object({
     .number()
     .positive("amount must be greater than 0")
     .describe("amount in stroops to recover")
-});
+}).strict();
 
 // Wave 5: self-service claim schema
 export const claimSchema = z.object({
   claimer: stellarAddressSchema.describe("collaborator address performing the claim")
-});
+}).strict();

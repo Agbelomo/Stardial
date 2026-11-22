@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, type MockInstance } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import request from "supertest";
 import type { Response } from "express";
 import { EventEmitter } from "events";
@@ -31,6 +31,7 @@ const mockQueryBuilder = {
   take: vi.fn().mockReturnThis(),
   getMany: mockGetMany,
   getManyAndCount: mockGetManyAndCount,
+  getCount: vi.fn().mockResolvedValue(mockRecords.length),
 };
 
 vi.mock("../services/database.js", () => ({
@@ -86,6 +87,8 @@ describe("GET /transactions/export", () => {
     expect(response.body).toHaveProperty("total", mockRecords.length);
     expect(response.body).toHaveProperty("limit", 10);
     expect(response.body).toHaveProperty("offset", 0);
+    expect(response.body).toHaveProperty("hasMore", false);
+    expect(response.body).toHaveProperty("nextCursor", null);
   });
 
   it("streams a CSV by default with a header row and a downloadable filename", async () => {

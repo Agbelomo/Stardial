@@ -2,6 +2,8 @@
 
 import { useTranslations } from "next-intl";
 
+import { ErrorRecoveryActions } from "@/components/error-recovery-actions";
+
 export default function LocalizedError({
   error,
   reset
@@ -16,13 +18,13 @@ export default function LocalizedError({
       <div className="rounded-2xl border border-red-400/40 bg-red-50 p-6 text-red-900">
         <h1 className="font-display text-2xl">{t("title")}</h1>
         <p className="mt-2 text-sm text-red-900/80">{error.message}</p>
-        <button
-          type="button"
-          onClick={reset}
-          className="mt-4 rounded-full bg-red-900 px-5 py-2 text-sm font-semibold text-white"
-        >
-          {t("retry")}
-        </button>
+        <ErrorRecoveryActions
+          retry={reset}
+          retryLabel={t("retry")}
+          backLabel={t("back")}
+          homeLabel={t("home")}
+          contextLabel={t("context")}
+        />
       </div>
     </main>
   );

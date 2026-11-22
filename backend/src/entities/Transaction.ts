@@ -5,6 +5,7 @@ import {
   Index,
   PrimaryGeneratedColumn,
   Unique,
+  VersionColumn,
 } from "typeorm";
 
 export const TRANSACTION_STATUSES = ["pending", "completed", "failed"] as const;
@@ -60,4 +61,10 @@ export class TransactionRecord {
     default: "pending",
   })
   status!: TransactionStatus;
+
+  // Optimistic locking: TypeORM increments this on every save and rejects
+  // stale writes, so concurrent balance/status updates cannot silently
+  // overwrite each other.
+  @VersionColumn()
+  version!: number;
 }
