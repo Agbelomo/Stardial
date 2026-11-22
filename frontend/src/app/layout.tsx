@@ -8,6 +8,7 @@ import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { RouteContextTracker } from "@/components/route-context-tracker";
 import { QueryProvider } from "@/components/query-provider";
 import { LoadingBar } from "@/components/LoadingBar";
+import { CookieBanner } from "@/components/CookieBanner";
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -49,6 +50,7 @@ export default async function RootLayout({
             </ToastProvider>
           </QueryProvider>
         </AppErrorBoundary>
+        <CookieBanner />
       </body>
     </html>
   );
