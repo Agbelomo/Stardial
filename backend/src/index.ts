@@ -27,6 +27,7 @@ import {
   splitLifecycleMetricsMiddleware,
 } from "./middleware/metrics.js";
 import { requestTimeout } from "./middleware/timeout.js";
+import { requireJsonObjectBody } from "./middleware/validate.js";
 import {
   globalLimiter,
   readLimiter,
@@ -112,6 +113,9 @@ app.use(
 );
 app.use(requestIdMiddleware);
 app.use(express.json({ limit: "1mb" }));
+// Write routes take an object body. `express.json()` also parses a top-level
+// array, which no route schema can validate, so reject it before any handler.
+app.use(requireJsonObjectBody);
 app.use(metricsMiddleware);
 app.use(requestTimeout());
 

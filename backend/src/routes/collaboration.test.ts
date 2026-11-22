@@ -57,21 +57,31 @@ describe("collaboration workflow routes", () => {
     }));
   });
 
-  it("requires the authenticated current owner and ignores client-supplied owner claims", async () => {
+  it("requires the authenticated current owner and rejects client-supplied owner claims", async () => {
     const response = await request(createApp())
       .post("/collaboration/projects/project_1/transfer-ownership")
       .set("X-Stellar-Address", stranger)
-      .send({ actor: owner, currentOwner: stranger, newOwner })
+      .send({ newOwner })
       .expect(403);
 
     expect(response.body.error).toBe("forbidden_not_owner");
+
+    // Spoofed ownership claims are not honoured — they are not part of the
+    // request contract, so the body is refused before authorization runs.
+    const spoofed = await request(createApp())
+      .post("/collaboration/projects/project_1/transfer-ownership")
+      .set("X-Stellar-Address", owner)
+      .send({ actor: owner, currentOwner: stranger, newOwner })
+      .expect(400);
+
+    expect(spoofed.body.code).toBe("VALIDATION_ERROR");
   });
 
   it("transfers ownership for the authenticated current owner", async () => {
     const response = await request(createApp())
       .post("/collaboration/projects/project_1/transfer-ownership")
       .set("X-Stellar-Address", owner)
-      .send({ actor: stranger, currentOwner: stranger, newOwner })
+      .send({ newOwner })
       .expect(200);
 
     expect(response.body.transfer).toMatchObject({
@@ -88,13 +98,26 @@ describe("collaboration workflow routes", () => {
       .send({ email: "person@example.com", tokenJti: "no-auth" })
       .expect(401);
 
+    // The inviter is taken from the authenticated identity; a body that tries
+    // to assert one is rejected as an unknown field.
+    const spoofed = await request(createApp())
+      .post("/collaboration/projects/project_1/invitations")
+      .set("X-Stellar-Address", admin)
+      .send({
+        email: "person@example.com",
+        tokenJti: "invite-spoofed-inviter",
+        inviterWalletAddress: stranger,
+      })
+      .expect(400);
+
+    expect(spoofed.body.code).toBe("VALIDATION_ERROR");
+
     const response = await request(createApp())
       .post("/collaboration/projects/project_1/invitations")
       .set("X-Stellar-Address", admin)
       .send({
         email: "person@example.com",
         tokenJti: "invite-authenticated-admin",
-        inviterWalletAddress: stranger,
       })
       .expect(201);
 
@@ -120,7 +143,8 @@ describe("collaboration workflow routes", () => {
   });
 
   it("uses server financial history and authenticated identity for deletion", async () => {
-    const response = await request(createApp())
+    // Client-supplied actor/financial claims are outside the contract.
+    const spoofed = await request(createApp())
       .post("/collaboration/projects/project_1/delete")
       .set("X-Stellar-Address", owner)
       .send({
@@ -134,6 +158,17 @@ describe("collaboration workflow routes", () => {
           hasClaims: false,
           transactionCount: 0,
         },
+      })
+      .expect(400);
+
+    expect(spoofed.body.code).toBe("VALIDATION_ERROR");
+
+    const response = await request(createApp())
+      .post("/collaboration/projects/project_1/delete")
+      .set("X-Stellar-Address", owner)
+      .send({
+        confirmed: true,
+        confirmationText: "DELETE PROJECT",
       })
       .expect(200);
 
