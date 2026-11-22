@@ -225,6 +225,7 @@ npm test -w backend -- api-contract.test.ts
 
 ## Related
 
+- [API Versioning & Deprecation Policy](./api-versioning.md)
 - [Rate-limiting guidance](./rate-limiting-guidance.md)
 - [API Evolution Runbook](./runbooks/api-evolution-runbook.md)
 - [Generated OpenAPI document](./openapi.yaml)
