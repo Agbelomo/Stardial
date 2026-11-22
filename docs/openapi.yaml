@@ -596,13 +596,37 @@ paths:
           in: query
       responses:
         "200":
-          description: List of projects
+          description: Paginated list of projects
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Project"
+                type: object
+                properties:
+                  projects:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Project"
+                  total:
+                    type: integer
+                    minimum: 0
+                  start:
+                    type: integer
+                    minimum: 0
+                  limit:
+                    type: integer
+                    minimum: 1
+                  hasMore:
+                    type: boolean
+                  nextCursor:
+                    type: string
+                    nullable: true
+                required:
+                  - projects
+                  - total
+                  - start
+                  - limit
+                  - hasMore
+                  - nextCursor
         "400":
           description: Validation error
           content:
