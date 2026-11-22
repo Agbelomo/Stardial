@@ -803,6 +803,7 @@ paths:
                       - address
                       - alias
                       - basisPoints
+                    additionalProperties: false
                   minItems: 2
                 expiresAt:
                   type: string
@@ -814,6 +815,7 @@ paths:
                 - projectType
                 - token
                 - collaborators
+              additionalProperties: false
             example:
               owner: GBJRKIYXAAFD3NZCWJXGUTNKYUQFZC2ANS6LRMBPJCE4IZSMJJMZPQBT
               projectId: afrobeats_001
@@ -985,6 +987,7 @@ paths:
                   description: owner
               required:
                 - owner
+              additionalProperties: false
       responses:
         "200":
           description: Unsigned transaction XDR
@@ -1091,6 +1094,7 @@ paths:
                 - from
                 - amount
                 - token
+              additionalProperties: false
             example:
               from: GCZTK3PNYXCVF7Z3ELVELEJZ7BVGPGPVJ3NVZNI7O6DVCHPA4JU6LXRV
               amount: 50000000
@@ -1308,10 +1312,12 @@ paths:
                       - address
                       - alias
                       - basisPoints
+                    additionalProperties: false
                   minItems: 2
               required:
                 - owner
                 - collaborators
+              additionalProperties: false
             example:
               owner: GBJRKIYXAAFD3NZCWJXGUTNKYUQFZC2ANS6LRMBPJCE4IZSMJJMZPQBT
               collaborators:
@@ -1425,6 +1431,7 @@ paths:
                 sourceAddress:
                   type: string
                   minLength: 1
+              additionalProperties: false
             example:
               sourceAddress: GBJRKIYXAAFD3NZCWJXGUTNKYUQFZC2ANS6LRMBPJCE4IZSMJJMZPQBT
       responses:
@@ -1592,6 +1599,7 @@ paths:
                   description: collaborator address performing the claim
               required:
                 - claimer
+              additionalProperties: false
       responses:
         "200":
           description: Unsigned transaction XDR
@@ -1981,6 +1989,7 @@ paths:
               required:
                 - admin
                 - token
+              additionalProperties: false
             example:
               admin: GBJRKIYXAAFD3NZCWJXGUTNKYUQFZC2ANS6LRMBPJCE4IZSMJJMZPQBT
               token: CDOVDY3MZDG7PHCGVP7EP2EKQ2ENV26DZW6FKLBRN42LOGIZGXZV3WX5
@@ -2059,6 +2068,7 @@ paths:
               required:
                 - admin
                 - token
+              additionalProperties: false
             example:
               admin: GBJRKIYXAAFD3NZCWJXGUTNKYUQFZC2ANS6LRMBPJCE4IZSMJJMZPQBT
               token: CDOVDY3MZDG7PHCGVP7EP2EKQ2ENV26DZW6FKLBRN42LOGIZGXZV3WX5
@@ -2132,6 +2142,7 @@ paths:
                   description: admin
               required:
                 - admin
+              additionalProperties: false
             example:
               admin: GBJRKIYXAAFD3NZCWJXGUTNKYUQFZC2ANS6LRMBPJCE4IZSMJJMZPQBT
       responses:
@@ -2204,6 +2215,7 @@ paths:
                   description: admin
               required:
                 - admin
+              additionalProperties: false
             example:
               admin: GBJRKIYXAAFD3NZCWJXGUTNKYUQFZC2ANS6LRMBPJCE4IZSMJJMZPQBT
       responses:
@@ -2482,6 +2494,7 @@ paths:
                 - token
                 - to
                 - amount
+              additionalProperties: false
             example:
               admin: GBJRKIYXAAFD3NZCWJXGUTNKYUQFZC2ANS6LRMBPJCE4IZSMJJMZPQBT
               token: CDOVDY3MZDG7PHCGVP7EP2EKQ2ENV26DZW6FKLBRN42LOGIZGXZV3WX5
@@ -2610,6 +2623,7 @@ paths:
                   maxLength: 72
               required:
                 - walletAddress
+              additionalProperties: false
       responses:
         "201":
           description: Registered user profile

@@ -54,11 +54,11 @@ const updatePreferencesSchema = z.object({
       z.object({
         category: preferenceCategorySchema,
         enabled: z.boolean(),
-      }),
+      }).strict(),
     )
     .min(1)
     .max(PREFERENCE_CATEGORIES.length),
-});
+}).strict();
 
 /**
  * Shapes the preference payload for the client. The full category catalogue is

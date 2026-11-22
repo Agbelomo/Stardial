@@ -76,7 +76,7 @@ collaborationRouter.get("/permissions/matrix", (_req, res) => {
 const deleteBodySchema = z.object({
   confirmed: z.boolean(),
   confirmationText: z.string().optional(),
-});
+}).strict();
 
 
 collaborationRouter.post(
@@ -132,7 +132,7 @@ const inviteBodySchema = z.object({
   tokenJti: z.string().min(1),
   ttlMs: z.number().int().positive().optional(),
   expiresAt: z.string().datetime().optional(),
-});
+}).strict();
 
 collaborationRouter.post(
   "/projects/:projectId/invitations",
@@ -161,7 +161,7 @@ collaborationRouter.post(
   "/invitations/accept",
   (req: Request, res: Response, next: NextFunction) => {
     try {
-      const body = z.object({ tokenJti: z.string().min(1) }).parse(req.body);
+      const body = z.object({ tokenJti: z.string().min(1) }).strict().parse(req.body);
       const record = acceptInvitationByTokenJti(body.tokenJti);
       return res.status(200).json({ invitation: record });
     } catch (error) {
@@ -205,7 +205,7 @@ collaborationRouter.post(
 
 const transferBodySchema = z.object({
   newOwner: stellarAddressSchema,
-});
+}).strict();
 
 collaborationRouter.post(
   "/projects/:projectId/transfer-ownership",
