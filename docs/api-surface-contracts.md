@@ -25,6 +25,48 @@ Clients must branch on `code` (`NOT_FOUND`), never on `message`. The
 implementation lives in `backend/src/middleware/error.ts` (`notFoundHandler`)
 and is pinned by `backend/src/middleware/__tests__/unknown-route-contract.test.ts`.
 
+## Request input validation contract (Issue #5)
+
+All query, path, body, and consumed header values on the endpoints listed below
+are checked by Zod schemas applied through the single shared
+`validateRequest` middleware in `backend/src/middleware/validate.ts`. The
+schemas live in `backend/src/schemas/api-input.schemas.ts` and reuse the
+existing amount helpers. Parsed (trimmed, normalized) values are what the
+handlers use; raw request input is never passed to a service or query.
+
+- `body`, `params`, and `query` schemas are strict: unknown keys are rejected.
+  Header schemas explicitly list the headers a route consumes, so ordinary
+  HTTP headers still pass through.
+- Rejections use the same 400 envelope as any other Zod validation failure,
+  with no echo of the offending value or field name:
+
+  ```json
+  {
+    "error": "validation_error",
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid request payload.",
+    "requestId": "b6f1a2d4-8c3e-4a1b-9f2e-6d5c7a8b9c0d",
+    "details": {
+      "fieldErrors": { "txHash": ["Must be a 64-character hexadecimal transaction hash"] },
+      "formErrors": []
+    }
+  }
+  ```
+
+- Reusable primitives: Stellar `G` account IDs are checked with the SDK `StrKey`
+  checksum; transaction hashes are 64 hex characters; SSE stream keys are
+  1–128 safe characters; amounts are canonical decimal strings with at most 7
+  fractional digits and within the Soroban `i128` bound; asset codes are 1–12
+  alphanumeric characters; text memos are at most 28 UTF-8 bytes; webhook
+  providers and delivery IDs are bounded identifier strings.
+- Covered endpoints: `GET /transactions/receipt/:txHash`,
+  `GET /transactions/:txHash`, `GET /transactions/recipient/:walletAddress`,
+  `GET /users/:walletAddress`, `POST /webhooks/:provider` (and its `/v1`
+  alias), `GET /events`, and `GET /events/transactions/:txHash`.
+- Tests in `backend/src/__tests__/api-input-validation.test.ts` assert the
+  envelope, the parsed values reaching the handler, and that a rejected request
+  never reaches a database query, webhook claim, or SSE subscription.
+
 ## Deprecation and Sunset headers
 
 Endpoints scheduled for removal advertise it on every response so clients can
@@ -75,8 +117,10 @@ share one pagination contract (#1259):
 - **Cursor.** A response with more rows carries `nextCursor`. Send it back as
   `?cursor=<value>` to fetch the next page. The cursor is opaque (base64url of
   `{ t, i }`) and is validated before it reaches SQL; a malformed value is
-  `400 VALIDATION_ERROR` with `details: { cursor: "invalid" }` and no query is
-  run.
+  `400 VALIDATION_ERROR` and no query is run. `/transactions/history` returns
+  `details: { cursor: "invalid" }`, while
+  `/transactions/recipient/:walletAddress` uses the shared
+  `details.fieldErrors.cursor` envelope described above.
 - **Page size.** `limit` is capped at 100; `101` is a `400`.
 - **Offset fallback.** `offset` remains supported for existing clients. When
   both `cursor` and `offset` are sent, `cursor` wins — mixing them would make
@@ -112,6 +156,19 @@ record to `res.json`. Serializers also normalise casing (`project_id` →
 so responses have one stable shape regardless of upstream representation.
 
 Tests: `backend/src/serializers/__tests__/response-serializers.test.ts`.
+## Pending invitation pagination
+
+`GET /auth/email/invitations/pending` is paged so a long-lived registry cannot
+return an unbounded response:
+
+- **Order.** Newest first by `(createdAt DESC, id DESC)`, so equal timestamps
+  still page deterministically.
+- **Page size.** `limit` defaults to **20** and is capped at **100**; a larger
+  value is a `400`.
+- **Offset.** `offset` defaults to `0`. `count` is the total number of matching
+  pending invitations, not the size of the current page.
+- **More pages.** `hasMore` is true when another page follows. `count`, `limit`,
+  `offset` and `hasMore` are returned alongside `invitations`.
 
 ## Per-route rate limits
 

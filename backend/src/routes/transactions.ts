@@ -2,8 +2,15 @@ import { Router, Request, Response, NextFunction } from "express";
 import {
   transactionHistoryQuerySchema,
   transactionExportQuerySchema,
-  transactionRecipientQuerySchema,
+  type TransactionRecipientQuery,
 } from "../schemas/transactions.schemas.js";
+import {
+  noQuerySchema,
+  recipientQuerySchema,
+  transactionHashParamsSchema,
+  walletAddressParamsSchema,
+} from "../schemas/api-input.schemas.js";
+import { validateRequest } from "../middleware/validate.js";
 import { AppError, ErrorCode, ErrorType } from "../lib/errors.js";
 import { toCsvRow } from "../lib/csv.js";
 import {
@@ -350,35 +357,35 @@ export function storeIdempotentResponse(
   });
 }
 
-transactionsRouter.get("/receipt/:txHash", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const txHashParam = req.params.txHash;
-    const txHash = Array.isArray(txHashParam) ? txHashParam[0] : txHashParam;
-    if (!txHash || !/^[a-fA-F0-9]{64}$/.test(txHash)) {
-      throw new AppError(ErrorType.VALIDATION, ErrorCode.VALIDATION_ERROR, "Invalid transaction hash.");
-    }
+transactionsRouter.get(
+  "/receipt/:txHash",
+  validateRequest({ params: transactionHashParamsSchema, query: noQuerySchema }),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const txHash = req.params.txHash as string;
 
-    const transaction = await payoutHistoryService.getPayoutByTxHash(txHash);
-    if (!transaction) {
-      throw new AppError(ErrorType.RPC, ErrorCode.NOT_FOUND, "Transaction not found.");
-    }
+      const transaction = await payoutHistoryService.getPayoutByTxHash(txHash);
+      if (!transaction) {
+        throw new AppError(ErrorType.RPC, ErrorCode.NOT_FOUND, "Transaction not found.");
+      }
 
-    return res.status(200).json({
-      reference: transaction.txHash,
-      amount: transaction.amount,
-      token: transaction.token,
-      date: Number.isFinite(transaction.timestamp)
-        ? new Date(transaction.timestamp * 1000).toISOString()
-        : null,
-      network: getEnv().SOROBAN_NETWORK_PASSPHRASE,
-      status: transaction.status,
-      recipient: transaction.recipient,
-      projectId: transaction.roundId,
-    });
-  } catch (error) {
-    return next(error);
+      return res.status(200).json({
+        reference: transaction.txHash,
+        amount: transaction.amount,
+        token: transaction.token,
+        date: Number.isFinite(transaction.timestamp)
+          ? new Date(transaction.timestamp * 1000).toISOString()
+          : null,
+        network: getEnv().SOROBAN_NETWORK_PASSPHRASE,
+        status: transaction.status,
+        recipient: transaction.recipient,
+        projectId: transaction.roundId,
+      });
+    } catch (error) {
+      return next(error);
+    }
   }
-});
+);
 
 /**
  * @openapi
@@ -407,20 +414,37 @@ transactionsRouter.get("/:txHash", async (req: Request, res: Response, next: Nex
     // Search for the transaction by hash
     const results = await payoutHistoryService.searchPayouts(txHash);
     const transaction = results.find(t => t.txHash === txHash);
+transactionsRouter.get(
+  "/:txHash",
+  validateRequest({ params: transactionHashParamsSchema, query: noQuerySchema }),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const txHash = req.params.txHash as string;
 
-    if (!transaction) {
-      throw new AppError(
-        ErrorType.RPC,
-        ErrorCode.NOT_FOUND,
-        `Transaction with hash ${txHash} not found.`
-      );
+      logger.info("Fetching transaction by hash", { txHash });
+
+      // Search for the transaction by hash
+      const results = await payoutHistoryService.searchPayouts(txHash);
+      const transaction = results.find(t => t.txHash === txHash);
+
+      if (!transaction) {
+        throw new AppError(
+          ErrorType.RPC,
+          ErrorCode.NOT_FOUND,
+          `Transaction with hash ${txHash} not found.`
+        );
+      }
+
+      return res.status(200).json(transaction);
+    } catch (error) {
+      return next(error);
     }
 
     return res.status(200).json(serializeTransactionRecord(transaction));
   } catch (error) {
     return next(error);
   }
-});
+);
 
 /**
  * @openapi
@@ -429,42 +453,38 @@ transactionsRouter.get("/:txHash", async (req: Request, res: Response, next: Nex
  * description: Returns all payout records sent to the given Stellar wallet address.
  * tags: [Transactions]
  */
-transactionsRouter.get("/recipient/:walletAddress", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { walletAddress } = req.params;
+transactionsRouter.get(
+  "/recipient/:walletAddress",
+  validateRequest({ params: walletAddressParamsSchema, query: recipientQuerySchema }),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      // Parsed/normalized values from the shared validation layer, never raw params.
+      const recipient = req.params.walletAddress as string;
+      const { limit, offset, cursor } = res.locals.validatedQuery as TransactionRecipientQuery;
+      const decodedCursor = decodePageCursor(cursor);
 
-    // Validate wallet address format
-    const walletAddressSchema = transactionHistoryQuerySchema.shape.walletAddress;
-    const parsed = walletAddressSchema.safeParse(walletAddress);
-    
-    if (!parsed.success) {
-      throw new AppError(
-        ErrorType.VALIDATION,
-        ErrorCode.VALIDATION_ERROR,
-        "Invalid wallet address format.",
-        undefined,
-        parsed.error.flatten()
-      );
-    }
+      logger.info("Fetching transactions for recipient", {
+        walletAddress: recipient,
+        limit,
+        offset,
+        cursor: decodedCursor ? "provided" : "none",
+      });
 
-    const parsedQuery = transactionRecipientQuerySchema.safeParse(req.query);
-    if (!parsedQuery.success) {
-      throw new AppError(
-        ErrorType.VALIDATION,
-        ErrorCode.VALIDATION_ERROR,
-        "Invalid query parameters.",
-        undefined,
-        parsedQuery.error.flatten()
-      );
-    }
+      const page = await payoutHistoryService.getPayoutsPage({
+        recipient,
+        limit,
+        offset,
+        cursor: decodedCursor,
+      });
 
-    const recipient = parsed.data;
-    if (!recipient) {
-      throw new AppError(
-        ErrorType.VALIDATION,
-        ErrorCode.VALIDATION_ERROR,
-        "Wallet address is required."
-      );
+      return res.status(200).json({
+        transactions: page.records,
+        total: page.total,
+        walletAddress: recipient,
+        ...buildPageMetadata(page, limit, offset),
+      });
+    } catch (error) {
+      return next(error);
     }
 
     const { limit, offset, cursor } = parsedQuery.data;
@@ -493,4 +513,4 @@ transactionsRouter.get("/recipient/:walletAddress", async (req: Request, res: Re
   } catch (error) {
     return next(error);
   }
-});
+);
