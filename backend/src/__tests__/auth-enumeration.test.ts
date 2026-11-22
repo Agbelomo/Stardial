@@ -228,7 +228,7 @@ describe("email enumeration (#1449)", () => {
     const login = (app: express.Express, body: Record<string, unknown>) =>
       request(app).post("/users/login").send(body);
 
-    it("signs in by wallet and ignores any email in the body", async () => {
+    it("signs in by wallet and rejects any email in the body", async () => {
       const app = createApp();
       const withKnownEmail = await login(app, {
         walletAddress: WALLET_UNKNOWN,
@@ -237,10 +237,14 @@ describe("email enumeration (#1449)", () => {
       const withUnknownEmail = await login(app, { walletAddress: WALLET_UNKNOWN, email: UNKNOWN });
       const withoutEmail = await login(app, { walletAddress: WALLET_UNKNOWN });
 
-      // Sign-in answers every failure with the same vague 401 (#1449).
+      // The email field is not part of the wallet-address login contract, so a
+      // body carrying it is refused before any lookup (the previous behaviour
+      // silently dropped the field). Wallet login in particular must never
+      // reveal whether the supplied email belongs to a real account.
+      expect(withKnownEmail.status).toBe(400);
+      expect(withUnknownEmail.status).toBe(400);
+      expect(observable(withKnownEmail)).toEqual(observable(withUnknownEmail));
       expect(withoutEmail.status).toBe(401);
-      expect(observable(withKnownEmail)).toEqual(observable(withoutEmail));
-      expect(observable(withUnknownEmail)).toEqual(observable(withoutEmail));
     });
 
     it("does not reflect a submitted email in a failed sign-in", async () => {

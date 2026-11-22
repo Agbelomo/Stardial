@@ -135,6 +135,27 @@ The response shape is documented in `docs/openapi.yaml`; the codec lives in
 `backend/src/__tests__/keyset-cursor.test.ts` and
 `backend/src/__tests__/transactions-pagination.test.ts`.
 
+## Response serializers and field filtering
+
+API responses are projections, never raw records. A response is built by a
+serializer in `backend/src/serializers/`, which maps the source value (an
+on-chain `scValToNative` result or a TypeORM row) onto an explicit Zod
+contract model and drops every field the model does not name.
+
+- `projects.serializer.ts` — `ProjectSummary` for list items (no nested
+  `collaborators` array, no contract internals), `Project` for detail, and
+  `ProjectList` for the list envelope.
+- `transactions.serializer.ts` — `TransactionRecord`, the documented payout
+  columns only.
+
+Because the OpenAPI components are registered from the same schemas, the
+documented shape and the runtime payload cannot drift apart. To expose a new
+field, add it to the contract model and the serializer; do not pass the raw
+record to `res.json`. Serializers also normalise casing (`project_id` →
+`projectId`, `basis_points` → `basisPoints`) and stringify `bigint` amounts,
+so responses have one stable shape regardless of upstream representation.
+
+Tests: `backend/src/serializers/__tests__/response-serializers.test.ts`.
 ## Pending invitation pagination
 
 `GET /auth/email/invitations/pending` is paged so a long-lived registry cannot

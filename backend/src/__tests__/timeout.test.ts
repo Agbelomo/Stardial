@@ -7,6 +7,7 @@ function makeRes(overrides: Partial<Response> & { locals?: Record<string, unknow
   return {
     headersSent: false,
     status: vi.fn().mockReturnThis(),
+    setHeader: vi.fn(),
     json: vi.fn().mockReturnThis(),
     on: vi.fn((event: string, cb: () => void) => { (listeners[event] ??= []).push(cb); }),
     emit: (event: string) => listeners[event]?.forEach((cb) => cb()),

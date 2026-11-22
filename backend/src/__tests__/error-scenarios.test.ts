@@ -12,9 +12,15 @@ import request from "supertest";
 import { app } from "../index.js";
 
 
-// Mock stellar services
-const mockGetStellarRpcServer = vi.fn();
-const mockLoadStellarConfig = vi.fn();
+// Mock stellar services. `vi.hoisted` is required because `vi.mock`
+// factories are hoisted above these declarations.
+const { mockGetStellarRpcServer, mockLoadStellarConfig, mockGetDataSource } = vi.hoisted(
+  () => ({
+    mockGetStellarRpcServer: vi.fn(),
+    mockLoadStellarConfig: vi.fn(),
+    mockGetDataSource: vi.fn(),
+  })
+);
 
 vi.mock("../services/stellar.js", async () => {
   const actual = await vi.importActual<typeof import("../services/stellar.js")>("../services/stellar.js");
@@ -27,7 +33,6 @@ vi.mock("../services/stellar.js", async () => {
 });
 
 // Mock database
-const mockGetDataSource = vi.fn();
 vi.mock("../services/database.js", async () => {
   const actual = await vi.importActual<typeof import("../services/database.js")>("../services/database.js");
   return {
@@ -147,10 +152,12 @@ describe("Error Scenarios - Rate Limiting", () => {
     it("should enforce rate limits on rapid requests", async () => {
       const results = [];
 
-      // Send multiple requests rapidly
+      // Send multiple requests rapidly through the global limiter. `/health`
+      // is exempt from it (and separately read-limited), so hit the root route
+      // to exercise the global budget itself.
       for (let i = 0; i < 200; i++) {
         const response = await request(app)
-          .get("/health");
+          .get("/");
 
         results.push(response.status);
       }

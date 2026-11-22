@@ -113,22 +113,26 @@ describe("installRpcProviderFailover", () => {
     );
   }
 
-  it("quarantines a provider on a request timeout and routes the next request to backup", () => {
+  it("quarantines a provider on a request timeout and routes the next request to backup", async () => {
     const policy = new RpcProviderHealthPolicy([PRIMARY, BACKUP]);
     install(policy);
 
     const config = requestHandler!({ baseURL: PRIMARY });
     expect(config.baseURL).toBe(PRIMARY);
-    rejectHandler!({ code: "ECONNABORTED", config });
+    await expect(Promise.resolve(rejectHandler!({ code: "ECONNABORTED", config }))).rejects.toMatchObject({
+      code: "ECONNABORTED",
+    });
     expect(requestHandler!({ baseURL: PRIMARY }).baseURL).toBe(BACKUP);
   });
 
-  it("does not mark a provider unhealthy for a stale/schema-invalid response", () => {
+  it("does not mark a provider unhealthy for a stale/schema-invalid response", async () => {
     const policy = new RpcProviderHealthPolicy([PRIMARY]);
     install(policy);
 
     requestHandler!({ baseURL: PRIMARY });
-    rejectHandler!(new Error("RPC response request ID did not match"));
+    await expect(
+      Promise.resolve(rejectHandler!(new Error("RPC response request ID did not match"))),
+    ).rejects.toThrow("RPC response request ID did not match");
     expect(policy.next()).toBe(PRIMARY);
   });
 });

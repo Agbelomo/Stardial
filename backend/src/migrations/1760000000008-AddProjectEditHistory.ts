@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import type { MigrationInterface, QueryRunner } from "typeorm";
 
 export class AddProjectEditHistory1760000000008 implements MigrationInterface {
   name = "AddProjectEditHistory1760000000008";

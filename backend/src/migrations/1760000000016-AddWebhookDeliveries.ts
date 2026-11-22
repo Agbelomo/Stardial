@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import type { MigrationInterface, QueryRunner } from "typeorm";
 
 export class AddWebhookDeliveries1760000000016 implements MigrationInterface {
   name = "AddWebhookDeliveries1760000000016";

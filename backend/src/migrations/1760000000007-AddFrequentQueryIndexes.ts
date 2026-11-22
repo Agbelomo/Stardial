@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import type { MigrationInterface, QueryRunner } from "typeorm";
 
 export class AddFrequentQueryIndexes1760000000007 implements MigrationInterface {
   name = "AddFrequentQueryIndexes1760000000007";

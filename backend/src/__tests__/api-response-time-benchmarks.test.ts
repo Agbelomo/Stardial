@@ -1,7 +1,33 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import request from "supertest";
 import { startTimer, endTimer } from "../lib/performance.js";
 import { app } from "../index.js";
+import { closeDatabase, initDatabase } from "../services/database.js";
+import { markStartupComplete } from "../routes/health.js";
+
+// Health readiness must not depend on a live Soroban endpoint in CI.
+vi.mock("../services/stellar.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../services/stellar.js")>();
+  return {
+    ...actual,
+    checkSorobanReachability: vi.fn(async () => ({
+      rpc: { ok: true, latencyMs: 1, message: "reachable" },
+      contract: { ok: true, latencyMs: 1, message: "simulation_ok" },
+    })),
+  };
+});
+
+// These benchmarks measure routing/query latency, not authentication.
+vi.mock("../middleware/auth-jwt.js", () => ({
+  authJwtMiddleware: (
+    req: { user?: { walletAddress: string } },
+    _res: unknown,
+    next: () => void,
+  ) => {
+    req.user = { walletAddress: "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA1" };
+    next();
+  },
+}));
 
 interface BenchmarkResult {
   endpoint: string;
@@ -15,8 +41,24 @@ describe("API Response-Time Benchmarks", () => {
   const TEST_WALLET = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA1";
   const results: BenchmarkResult[] = [];
 
-  beforeAll(() => {
+  beforeAll(async () => {
+    process.env.HORIZON_URL ??= "https://horizon-testnet.stellar.org";
+    process.env.SOROBAN_RPC_URL ??= "https://soroban-testnet.stellar.org";
+    process.env.SOROBAN_NETWORK_PASSPHRASE ??= "Test SDF Network ; September 2015";
+    process.env.CONTRACT_ID ??=
+      "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    process.env.SIMULATOR_ACCOUNT ??=
+      "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF";
+    // Force the admin auth check so a missing key is a deterministic 401.
+    process.env.PAYMENTS_ADMIN_API_KEY ??= "benchmark-admin-key";
+
+    await initDatabase();
+    markStartupComplete();
     console.log("Starting API response-time benchmark suite...");
+  });
+
+  afterAll(async () => {
+    await closeDatabase();
   });
 
   const recordBenchmark = (
@@ -158,7 +200,7 @@ describe("API Response-Time Benchmarks", () => {
     it("returns 401 for missing auth within 100ms", async () => {
       startTimer("missing-auth");
       const res = await request(app)
-        .post("/admin/allow-token")
+        .post("/splits/admin/allow-token")
         .send({ token: "TEST" });
       const latency = endTimer("missing-auth");
 
